@@ -7,7 +7,8 @@ func Select(cols ...string) *SelectStmt {
 }
 
 type SelectStmt struct {
-	cols []string
+	cols  []string
+	table string
 }
 
 func (ss *SelectStmt) Build() string {
@@ -21,5 +22,15 @@ func (ss *SelectStmt) Build() string {
 		sb.WriteString(col)
 	}
 
+	if ss.table != "" {
+		sb.WriteString(" FROM ")
+		sb.WriteString(ss.table)
+	}
+
 	return sb.String()
+}
+
+func (ss *SelectStmt) From(table string) *SelectStmt {
+	ss.table = table
+	return ss
 }
