@@ -1,6 +1,9 @@
 package pql
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 func Select(cols ...string) *SelectStmt {
 	return &SelectStmt{cols: cols}
@@ -9,7 +12,7 @@ func Select(cols ...string) *SelectStmt {
 type SelectStmt struct {
 	cols  []string
 	table string
-	where *WhereCls
+	where []*WhereCls
 }
 
 func (ss *SelectStmt) Build() (string, []interface{}) {
@@ -34,7 +37,14 @@ func (ss *SelectStmt) Build() (string, []interface{}) {
 
 	var args []interface{}
 	if ss.where != nil {
-		args = ss.where.build(sb, args)
+		sb.WriteString(" WHERE (")
+		for i, w := range ss.where {
+			if i != 0 {
+				sb.WriteString(") AND (")
+			}
+			args = w.build(sb, args)
+		}
+		sb.WriteByte(')')
 	}
 
 	return sb.String(), args
@@ -46,8 +56,9 @@ func (ss *SelectStmt) From(table string) *SelectStmt {
 }
 
 func (ss *SelectStmt) Where(col string) *WhereCls {
-	ss.where = &WhereCls{ss: ss, col: col}
-	return ss.where
+	w := &WhereCls{ss: ss, col: col}
+	ss.where = append(ss.where, w)
+	return w
 }
 
 type WhereCls struct {
@@ -62,13 +73,13 @@ func (wc *WhereCls) Build() (string, []interface{}) {
 }
 
 func (wc *WhereCls) build(sb *strings.Builder, args []interface{}) []interface{} {
-	sb.WriteString(" WHERE ")
 	sb.WriteString(wc.col)
 
 	if wc.op != "" {
 		sb.WriteString(wc.op)
-		sb.WriteString("$1")
 		args = append(args, wc.arg)
+		sb.WriteByte('$')
+		sb.WriteString(strconv.Itoa(len(args)))
 	}
 
 	return args
