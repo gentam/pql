@@ -34,13 +34,7 @@ func (ss *SelectStmt) Build() (string, []interface{}) {
 
 	var args []interface{}
 	if ss.where != nil {
-		sb.WriteString(" WHERE ")
-		sb.WriteString(ss.where.col)
-		if ss.where.op != "" {
-			sb.WriteString(ss.where.op)
-			sb.WriteString("$1")
-			args = append(args, ss.where.arg)
-		}
+		args = ss.where.build(sb, args)
 	}
 
 	return sb.String(), args
@@ -65,6 +59,19 @@ type WhereCls struct {
 
 func (wc *WhereCls) Build() (string, []interface{}) {
 	return wc.ss.Build()
+}
+
+func (wc *WhereCls) build(sb *strings.Builder, args []interface{}) []interface{} {
+	sb.WriteString(" WHERE ")
+	sb.WriteString(wc.col)
+
+	if wc.op != "" {
+		sb.WriteString(wc.op)
+		sb.WriteString("$1")
+		args = append(args, wc.arg)
+	}
+
+	return args
 }
 
 func (wc *WhereCls) Eq(v interface{}) *WhereCls {
