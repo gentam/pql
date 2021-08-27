@@ -61,6 +61,12 @@ func (ss *SelectStmt) Where(col string) *WhereCls {
 	return w
 }
 
+func (ss *SelectStmt) WhereNot(col string) *WhereCls {
+	w := &WhereCls{ss: ss, col: "NOT " + col}
+	ss.where = append(ss.where, w)
+	return w
+}
+
 type WhereCls struct {
 	ss  *SelectStmt
 	col string
