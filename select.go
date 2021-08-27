@@ -15,11 +15,15 @@ func (ss *SelectStmt) Build() string {
 	sb := &strings.Builder{}
 	sb.WriteString("SELECT ")
 
-	for i, col := range ss.cols {
-		if i != 0 {
-			sb.WriteByte(',')
+	if ss.cols != nil {
+		for i, col := range ss.cols {
+			if i != 0 {
+				sb.WriteByte(',')
+			}
+			sb.WriteString(col)
 		}
-		sb.WriteString(col)
+	} else {
+		sb.WriteByte('*')
 	}
 
 	if ss.table != "" {
