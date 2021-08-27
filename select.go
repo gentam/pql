@@ -9,6 +9,7 @@ func Select(cols ...string) *SelectStmt {
 type SelectStmt struct {
 	cols  []string
 	table string
+	where string
 }
 
 func (ss *SelectStmt) Build() string {
@@ -31,10 +32,20 @@ func (ss *SelectStmt) Build() string {
 		sb.WriteString(ss.table)
 	}
 
+	if ss.where != "" {
+		sb.WriteString(" WHERE ")
+		sb.WriteString(ss.where)
+	}
+
 	return sb.String()
 }
 
 func (ss *SelectStmt) From(table string) *SelectStmt {
 	ss.table = table
+	return ss
+}
+
+func (ss *SelectStmt) Where(cond string) *SelectStmt {
+	ss.where = cond
 	return ss
 }
