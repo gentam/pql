@@ -7,6 +7,6 @@ import (
 )
 
 func TestSelect(t *testing.T) {
-	q := Select("a", "1", "now()").Build()
-	assert.Equal(t, "SELECT a,1,now()", q)
+	q := Select("a", "1", "now()").From("t").Build()
+	assert.Equal(t, "SELECT a,1,now() FROM t", q)
 }
