@@ -111,13 +111,13 @@ func (wc *WhereCls) build(sb *strings.Builder, args []interface{}) []interface{}
 	return args
 }
 
-func (wc *WhereCls) And(col string) *WhereCls {
-	wc.and = &WhereCls{ss: wc.ss, col: col}
+func (wc *WhereCls) And(col string, args ...interface{}) *WhereCls {
+	wc.and = &WhereCls{ss: wc.ss, col: col, args: args}
 	return wc.and
 }
 
-func (wc *WhereCls) Or(col string) *WhereCls {
-	wc.or = &WhereCls{ss: wc.ss, col: col}
+func (wc *WhereCls) Or(col string, args ...interface{}) *WhereCls {
+	wc.or = &WhereCls{ss: wc.ss, col: col, args: args}
 	return wc.or
 }
 
