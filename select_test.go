@@ -35,4 +35,10 @@ func TestSelectWhere(t *testing.T) {
 	q, a = s.Build()
 	assert.Equal(t, "SELECT * FROM t WHERE (c1=$1) AND (c2=$2) AND (NOT c3=$3)", q)
 	assert.Equal(t, []interface{}{1, "2", 3}, a)
+
+	s = Select().From("t")
+	s.Where("c1").Or("c2").And("c3")
+	s.WhereNot("c4").And("c5").Or("c6")
+	q, _ = s.Build()
+	assert.Equal(t, "SELECT * FROM t WHERE (c1 OR (c2 AND (c3))) AND (NOT c4 AND (c5 OR (c6)))", q)
 }
