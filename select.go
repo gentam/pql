@@ -72,6 +72,9 @@ type WhereCls struct {
 	col string
 	op  string
 	arg interface{}
+
+	and *WhereCls
+	or  *WhereCls
 }
 
 func (wc *WhereCls) Build() (string, []interface{}) {
@@ -88,7 +91,28 @@ func (wc *WhereCls) build(sb *strings.Builder, args []interface{}) []interface{}
 		sb.WriteString(strconv.Itoa(len(args)))
 	}
 
+	if wc.and != nil {
+		sb.WriteString(" AND (")
+		args = wc.and.build(sb, args)
+		sb.WriteByte(')')
+	}
+	if wc.or != nil {
+		sb.WriteString(" OR (")
+		args = wc.or.build(sb, args)
+		sb.WriteByte(')')
+	}
+
 	return args
+}
+
+func (wc *WhereCls) And(col string) *WhereCls {
+	wc.and = &WhereCls{ss: wc.ss, col: col}
+	return wc.and
+}
+
+func (wc *WhereCls) Or(col string) *WhereCls {
+	wc.or = &WhereCls{ss: wc.ss, col: col}
+	return wc.or
 }
 
 func (wc *WhereCls) Eq(v interface{}) *WhereCls {
