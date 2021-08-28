@@ -54,8 +54,9 @@ func TestSelectWhere2(t *testing.T) {
 	assert.Equal(t, []interface{}{1, "2", 3}, a)
 
 	s = Select().From("t")
-	s.Where("c1").Or("c2").And("c3")
-	s.WhereNot("c4").And("c5").Or("c6")
-	q, _ = s.Build()
-	assert.Equal(t, "SELECT * FROM t WHERE (c1 OR (c2 AND (c3))) AND (NOT c4 AND (c5 OR (c6)))", q)
+	s.Where("c1").Or("c2").Eq(2).And("c3 = ?", 3)
+	s.WhereNot("c4").And("c5 < ?", 5).Or("c6").Eq("6")
+	q, a = s.Build()
+	assert.Equal(t, "SELECT * FROM t WHERE (c1 OR (c2=$1 AND (c3 = $2))) AND (NOT c4 AND (c5 < $3 OR (c6=$4)))", q)
+	assert.Equal(t, []interface{}{2, 3, 5, "6"}, a)
 }
