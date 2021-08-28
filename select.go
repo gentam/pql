@@ -55,23 +55,23 @@ func (ss *SelectStmt) From(table string) *SelectStmt {
 	return ss
 }
 
-func (ss *SelectStmt) Where(col string) *WhereCls {
-	w := &WhereCls{ss: ss, col: col}
+func (ss *SelectStmt) Where(col string, args ...interface{}) *WhereCls {
+	w := &WhereCls{ss: ss, col: col, args: args}
 	ss.where = append(ss.where, w)
 	return w
 }
 
-func (ss *SelectStmt) WhereNot(col string) *WhereCls {
-	w := &WhereCls{ss: ss, col: "NOT " + col}
+func (ss *SelectStmt) WhereNot(col string, args ...interface{}) *WhereCls {
+	w := &WhereCls{ss: ss, col: "NOT " + col, args: args}
 	ss.where = append(ss.where, w)
 	return w
 }
 
 type WhereCls struct {
-	ss  *SelectStmt
-	col string
-	op  string
-	arg interface{}
+	ss   *SelectStmt
+	col  string
+	op   string
+	args []interface{}
 
 	and *WhereCls
 	or  *WhereCls
@@ -82,13 +82,19 @@ func (wc *WhereCls) Build() (string, []interface{}) {
 }
 
 func (wc *WhereCls) build(sb *strings.Builder, args []interface{}) []interface{} {
-	sb.WriteString(wc.col)
-
 	if wc.op != "" {
+		sb.WriteString(wc.col)
 		sb.WriteString(wc.op)
-		args = append(args, wc.arg)
-		sb.WriteByte('$')
-		sb.WriteString(strconv.Itoa(len(args)))
+		args = append(args, wc.args...)
+		sb.WriteString("$" + strconv.Itoa(len(args)))
+	} else if wc.args != nil {
+		for _, arg := range wc.args {
+			args = append(args, arg)
+			wc.col = strings.Replace(wc.col, "?", "$"+strconv.Itoa(len(args)), 1)
+		}
+		sb.WriteString(wc.col)
+	} else {
+		sb.WriteString(wc.col)
 	}
 
 	if wc.and != nil {
@@ -117,6 +123,6 @@ func (wc *WhereCls) Or(col string) *WhereCls {
 
 func (wc *WhereCls) Eq(v interface{}) *WhereCls {
 	wc.op = "="
-	wc.arg = v
+	wc.args = append(wc.args, v)
 	return wc
 }
