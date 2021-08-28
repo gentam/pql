@@ -15,7 +15,7 @@ func TestSelect(t *testing.T) {
 	assert.Equal(t, "SELECT * FROM t", q)
 }
 
-func TestSelectWhere(t *testing.T) {
+func TestSelectWhere1(t *testing.T) {
 	q, a := Select().From("t").Where("true").Build()
 	assert.Equal(t, "SELECT * FROM t WHERE (true)", q)
 	assert.Empty(t, a)
@@ -24,8 +24,25 @@ func TestSelectWhere(t *testing.T) {
 	assert.Equal(t, "SELECT * FROM t WHERE (NOT true)", q)
 	assert.Empty(t, a)
 
-	q, a = Select().From("t").Where("v").Eq(1).Build()
-	assert.Equal(t, "SELECT * FROM t WHERE (v=$1)", q)
+	q, a = Select().From("t").Where("expire <= now()").Build()
+	assert.Equal(t, "SELECT * FROM t WHERE (expire <= now())", q)
+	assert.Empty(t, a)
+
+	q, a = Select().From("t").Where("c > ?", 1).Build()
+	assert.Equal(t, "SELECT * FROM t WHERE (c > $1)", q)
+	assert.Equal(t, []interface{}{1}, a)
+
+	s := Select().From("t1")
+	s.WhereNot("c1 in (?,?,?)", 1, 2, 3)
+	s.Where("c2 = any (select id from t2 where c <> ?)", "4")
+	q, a = s.Build()
+	assert.Equal(t, "SELECT * FROM t1 WHERE (NOT c1 in ($1,$2,$3)) AND (c2 = any (select id from t2 where c <> $4))", q)
+	assert.Equal(t, []interface{}{1, 2, 3, "4"}, a)
+}
+
+func TestSelectWhere2(t *testing.T) {
+	q, a := Select().From("t").Where("c").Eq(1).Build()
+	assert.Equal(t, "SELECT * FROM t WHERE (c=$1)", q)
 	assert.Equal(t, []interface{}{1}, a)
 
 	s := Select().From("t")
