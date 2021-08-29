@@ -13,6 +13,8 @@ type SelectStmt struct {
 	cols  []string
 	table string
 	where []*WhereCls
+
+	limit, offset int
 }
 
 func (ss *SelectStmt) Build() (string, []interface{}) {
@@ -47,6 +49,15 @@ func (ss *SelectStmt) Build() (string, []interface{}) {
 		sb.WriteByte(')')
 	}
 
+	if ss.limit != 0 {
+		sb.WriteString(" LIMIT ")
+		sb.WriteString(strconv.Itoa(ss.limit))
+	}
+	if ss.offset != 0 {
+		sb.WriteString(" OFFSET ")
+		sb.WriteString(strconv.Itoa(ss.offset))
+	}
+
 	return sb.String(), args
 }
 
@@ -65,6 +76,16 @@ func (ss *SelectStmt) WhereNot(col string, args ...interface{}) *WhereCls {
 	w := &WhereCls{ss: ss, col: "NOT " + col, args: args}
 	ss.where = append(ss.where, w)
 	return w
+}
+
+func (ss *SelectStmt) Limit(n int) *SelectStmt {
+	ss.limit = n
+	return ss
+}
+
+func (ss *SelectStmt) Offset(n int) *SelectStmt {
+	ss.offset = n
+	return ss
 }
 
 type WhereCls struct {
