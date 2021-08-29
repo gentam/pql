@@ -89,14 +89,20 @@ func (ss *SelectStmt) Offset(n int) *SelectStmt {
 }
 
 type WhereCls struct {
-	ss   *SelectStmt
-	col  string
-	op   string
-	args []interface{}
+	ss     *SelectStmt
+	col    string
+	op     string
+	opType int // default bin
+	args   []interface{}
 
 	and *WhereCls
 	or  *WhereCls
 }
+
+const (
+	bin = iota
+	monoPost
+)
 
 func (wc *WhereCls) Build() (string, []interface{}) {
 	return wc.ss.Build()
@@ -104,10 +110,16 @@ func (wc *WhereCls) Build() (string, []interface{}) {
 
 func (wc *WhereCls) build(sb *strings.Builder, args []interface{}) []interface{} {
 	if wc.op != "" {
-		sb.WriteString(wc.col)
-		sb.WriteString(wc.op)
-		args = append(args, wc.args...)
-		sb.WriteString("$" + strconv.Itoa(len(args)))
+		switch wc.opType {
+		case bin:
+			sb.WriteString(wc.col)
+			sb.WriteString(wc.op)
+			args = append(args, wc.args...)
+			sb.WriteString("$" + strconv.Itoa(len(args)))
+		case monoPost:
+			sb.WriteString(wc.col)
+			sb.WriteString(wc.op)
+		}
 	} else if wc.args != nil {
 		for _, arg := range wc.args {
 			args = append(args, arg)
@@ -140,6 +152,18 @@ func (wc *WhereCls) And(col string, args ...interface{}) *WhereCls {
 func (wc *WhereCls) Or(col string, args ...interface{}) *WhereCls {
 	wc.or = &WhereCls{ss: wc.ss, col: col, args: args}
 	return wc.or
+}
+
+func (wc *WhereCls) IsNull() *WhereCls {
+	wc.op = " IS NULL"
+	wc.opType = monoPost
+	return wc
+}
+
+func (wc *WhereCls) IsNotNull() *WhereCls {
+	wc.op = " IS NOT NULL"
+	wc.opType = monoPost
+	return wc
 }
 
 func (wc *WhereCls) Eq(v interface{}) *WhereCls {
