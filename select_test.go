@@ -60,3 +60,8 @@ func TestSelectWhere2(t *testing.T) {
 	assert.Equal(t, "SELECT * FROM t WHERE (c1 OR (c2=$1 AND (c3 = $2))) AND (NOT c4 AND (c5 < $3 OR (c6=$4)))", q)
 	assert.Equal(t, []interface{}{2, 3, 5, "6"}, a)
 }
+
+func TestSelectLimitOffset(t *testing.T) {
+	q, _ := Select().From("t").Limit(1).Offset(10).Build()
+	assert.Equal(t, "SELECT * FROM t LIMIT 1 OFFSET 10", q)
+}
