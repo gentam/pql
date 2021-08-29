@@ -46,12 +46,23 @@ func TestSelectWhere2(t *testing.T) {
 	assert.Equal(t, []interface{}{1}, a)
 
 	s := Select().From("t")
-	s.Where("c1").IsNull()
-	s.Where("c2").IsNotNull()
-	s.Where("c3").Eq(3)
+	s.Where("ca").IsNull()
+	s.Where("cb").IsNotNull()
+	s.Where("c1").Eq(1)
+	s.Where("c2").Neq(2)
+	s.Where("c3").Lt(3)
+	s.Where("c4").Gt(4)
+	s.Where("c5").Le(5)
+	s.Where("c6").Ge(6)
+	s.Where("c7").Like("7")
+	s.Where("c8").Ilike("8")
+	s.Where("c9").Contains([]int{1, 2, 3})
+	s.Where("c10").ContainedBy([]int{4, 5, 6})
 	q, a = s.Build()
-	assert.Equal(t, "SELECT * FROM t WHERE (c1 IS NULL) AND (c2 IS NOT NULL) AND (c3=$1)", q)
-	assert.Equal(t, []interface{}{3}, a)
+	assert.Equal(t, "SELECT * FROM t WHERE (ca IS NULL) AND (cb IS NOT NULL) AND (c1=$1) AND (c2<>$2) AND (c3<$3) AND (c4>$4) AND (c5<=$5) AND (c6>=$6) "+
+		"AND (c7 LIKE $7) AND (c8 ILIKE $8) AND (c9@>$9) AND (c10<@$10)",
+		q)
+	assert.Equal(t, []interface{}{1, 2, 3, 4, 5, 6, "7", "8", []int{1, 2, 3}, []int{4, 5, 6}}, a)
 
 	s = Select().From("t")
 	s.Where("c1").Or("c2").Eq(2).And("c3 = ?", 3)

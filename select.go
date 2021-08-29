@@ -171,3 +171,57 @@ func (wc *WhereCls) Eq(v interface{}) *WhereCls {
 	wc.args = append(wc.args, v)
 	return wc
 }
+
+func (wc *WhereCls) Neq(v interface{}) *WhereCls {
+	wc.op = "<>"
+	wc.args = append(wc.args, v)
+	return wc
+}
+
+func (wc *WhereCls) Lt(v interface{}) *WhereCls {
+	wc.op = "<"
+	wc.args = append(wc.args, v)
+	return wc
+}
+
+func (wc *WhereCls) Gt(v interface{}) *WhereCls {
+	wc.op = ">"
+	wc.args = append(wc.args, v)
+	return wc
+}
+
+func (wc *WhereCls) Le(v interface{}) *WhereCls {
+	wc.op = "<="
+	wc.args = append(wc.args, v)
+	return wc
+}
+
+func (wc *WhereCls) Ge(v interface{}) *WhereCls {
+	wc.op = ">="
+	wc.args = append(wc.args, v)
+	return wc
+}
+
+func (wc *WhereCls) Like(v interface{}) *WhereCls {
+	wc.op = " LIKE "
+	wc.args = append(wc.args, v)
+	return wc
+}
+
+func (wc *WhereCls) Ilike(v interface{}) *WhereCls {
+	wc.op = " ILIKE "
+	wc.args = append(wc.args, v)
+	return wc
+}
+
+func (wc *WhereCls) Contains(v interface{}) *WhereCls {
+	wc.op = "@>"
+	wc.args = append(wc.args, v)
+	return wc
+}
+
+func (wc *WhereCls) ContainedBy(v interface{}) *WhereCls {
+	wc.op = "<@"
+	wc.args = append(wc.args, v)
+	return wc
+}
