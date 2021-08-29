@@ -46,12 +46,12 @@ func TestSelectWhere2(t *testing.T) {
 	assert.Equal(t, []interface{}{1}, a)
 
 	s := Select().From("t")
-	s.Where("c1").Eq(1)
-	s.Where("c2").Eq("2")
-	s.WhereNot("c3").Eq(3)
+	s.Where("c1").IsNull()
+	s.Where("c2").IsNotNull()
+	s.Where("c3").Eq(3)
 	q, a = s.Build()
-	assert.Equal(t, "SELECT * FROM t WHERE (c1=$1) AND (c2=$2) AND (NOT c3=$3)", q)
-	assert.Equal(t, []interface{}{1, "2", 3}, a)
+	assert.Equal(t, "SELECT * FROM t WHERE (c1 IS NULL) AND (c2 IS NOT NULL) AND (c3=$1)", q)
+	assert.Equal(t, []interface{}{3}, a)
 
 	s = Select().From("t")
 	s.Where("c1").Or("c2").Eq(2).And("c3 = ?", 3)
