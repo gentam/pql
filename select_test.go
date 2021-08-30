@@ -72,6 +72,13 @@ func TestSelectWhere2(t *testing.T) {
 	assert.Equal(t, []interface{}{2, 3, 5, "6"}, a)
 }
 
+func TestSelectOrder(t *testing.T) {
+	q1, _ := Select().From("t").Asc("c").Build()
+	q2, _ := Select().From("t").Desc("c").Build()
+	assert.Equal(t, "SELECT * FROM t ORDER BY c ASC", q1)
+	assert.Equal(t, "SELECT * FROM t ORDER BY c DESC", q2)
+}
+
 func TestSelectLimitOffset(t *testing.T) {
 	q, _ := Select().From("t").Limit(1).Offset(10).Build()
 	assert.Equal(t, "SELECT * FROM t LIMIT 1 OFFSET 10", q)
