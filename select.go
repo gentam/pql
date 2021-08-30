@@ -39,14 +39,7 @@ func (ss *SelectStmt) Build() (string, []interface{}) {
 
 	var args []interface{}
 	if ss.where != nil {
-		sb.WriteString(" WHERE (")
-		for i, w := range ss.where {
-			if i != 0 {
-				sb.WriteString(") AND (")
-			}
-			args = w.build(sb, args)
-		}
-		sb.WriteByte(')')
+		args = buildWhere(ss.where, sb, args)
 	}
 
 	if ss.limit != 0 {
@@ -67,13 +60,13 @@ func (ss *SelectStmt) From(table string) *SelectStmt {
 }
 
 func (ss *SelectStmt) Where(col string, args ...interface{}) *WhereCls {
-	w := &WhereCls{ss: ss, col: col, args: args}
+	w := &WhereCls{stmt: ss, col: col, args: args}
 	ss.where = append(ss.where, w)
 	return w
 }
 
 func (ss *SelectStmt) WhereNot(col string, args ...interface{}) *WhereCls {
-	w := &WhereCls{ss: ss, col: "NOT " + col, args: args}
+	w := &WhereCls{stmt: ss, col: "NOT " + col, args: args}
 	ss.where = append(ss.where, w)
 	return w
 }
