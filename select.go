@@ -5,10 +5,6 @@ import (
 	"strings"
 )
 
-func Select(cols ...string) *SelectStmt {
-	return &SelectStmt{cols: cols}
-}
-
 type SelectStmt struct {
 	cols  []string
 	table string
@@ -18,6 +14,10 @@ type SelectStmt struct {
 	desc  bool
 
 	limit, offset int
+}
+
+func Select(cols ...string) *SelectStmt {
+	return &SelectStmt{cols: cols}
 }
 
 func (ss *SelectStmt) Build() (string, []interface{}) {
