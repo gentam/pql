@@ -6,7 +6,7 @@ import (
 )
 
 type WhereCls struct {
-	ss     *SelectStmt
+	stmt   Builder
 	col    string
 	op     string
 	opType int // default bin
@@ -16,13 +16,29 @@ type WhereCls struct {
 	or  *WhereCls
 }
 
+type Builder interface {
+	Build() (string, []interface{})
+}
+
 const (
 	bin = iota
 	monoPost
 )
 
+func buildWhere(ws []*WhereCls, sb *strings.Builder, args []interface{}) []interface{} {
+	sb.WriteString(" WHERE (")
+	for i, w := range ws {
+		if i != 0 {
+			sb.WriteString(") AND (")
+		}
+		args = w.build(sb, args)
+	}
+	sb.WriteByte(')')
+	return args
+}
+
 func (wc *WhereCls) Build() (string, []interface{}) {
-	return wc.ss.Build()
+	return wc.stmt.Build()
 }
 
 func (wc *WhereCls) build(sb *strings.Builder, args []interface{}) []interface{} {
@@ -62,12 +78,12 @@ func (wc *WhereCls) build(sb *strings.Builder, args []interface{}) []interface{}
 }
 
 func (wc *WhereCls) And(col string, args ...interface{}) *WhereCls {
-	wc.and = &WhereCls{ss: wc.ss, col: col, args: args}
+	wc.and = &WhereCls{stmt: wc.stmt, col: col, args: args}
 	return wc.and
 }
 
 func (wc *WhereCls) Or(col string, args ...interface{}) *WhereCls {
-	wc.or = &WhereCls{ss: wc.ss, col: col, args: args}
+	wc.or = &WhereCls{stmt: wc.stmt, col: col, args: args}
 	return wc.or
 }
 
