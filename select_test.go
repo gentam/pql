@@ -60,8 +60,7 @@ func TestSelectWhere2(t *testing.T) {
 	s.Where("c10").ContainedBy([]int{4, 5, 6})
 	q, a = s.Build()
 	assert.Equal(t, "SELECT * FROM t WHERE (ca IS NULL) AND (cb IS NOT NULL) AND (c1=$1) AND (c2<>$2) AND (c3<$3) AND (c4>$4) AND (c5<=$5) AND (c6>=$6) "+
-		"AND (c7 LIKE $7) AND (c8 ILIKE $8) AND (c9@>$9) AND (c10<@$10)",
-		q)
+		"AND (c7 LIKE $7) AND (c8 ILIKE $8) AND (c9@>$9) AND (c10<@$10)", q)
 	assert.Equal(t, []interface{}{1, 2, 3, 4, 5, 6, "7", "8", []int{1, 2, 3}, []int{4, 5, 6}}, a)
 
 	s = Select().From("t")

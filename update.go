@@ -5,14 +5,14 @@ import (
 	"strings"
 )
 
-func Update(table string) *UpdateStmt {
-	return &UpdateStmt{table: table, m: make(map[string]interface{})}
-}
-
 type UpdateStmt struct {
 	table string
 	m     map[string]interface{}
 	where []*WhereCls
+}
+
+func Update(table string) *UpdateStmt {
+	return &UpdateStmt{table: table, m: make(map[string]interface{})}
 }
 
 func (us *UpdateStmt) Build() (string, []interface{}) {
