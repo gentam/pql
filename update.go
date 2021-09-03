@@ -60,3 +60,9 @@ func (us *UpdateStmt) WhereNot(col string, args ...interface{}) *WhereCls {
 	us.where = append(us.where, w)
 	return w
 }
+
+func (us *UpdateStmt) Apply(w *WhereCls) *UpdateStmt {
+	w.root.stmt = us
+	us.where = append(us.where, w.root)
+	return us
+}
