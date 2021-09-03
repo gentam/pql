@@ -12,12 +12,19 @@ type WhereCls struct {
 	opType int // default bin
 	args   []interface{}
 
-	and *WhereCls
-	or  *WhereCls
+	and  *WhereCls
+	or   *WhereCls
+	root *WhereCls
 }
 
 type Builder interface {
 	Build() (string, []interface{})
+}
+
+func Where(col string, args ...interface{}) *WhereCls {
+	wc := &WhereCls{col: col, args: args}
+	wc.root = wc
+	return wc
 }
 
 const (
@@ -38,7 +45,13 @@ func buildWhere(ws []*WhereCls, sb *strings.Builder, args []interface{}) []inter
 }
 
 func (wc *WhereCls) Build() (string, []interface{}) {
-	return wc.stmt.Build()
+	if wc.stmt != nil {
+		return wc.stmt.Build()
+	}
+	if wc.root.stmt == nil {
+		return "error: cannot build detatched WHERE clause", nil
+	}
+	return wc.root.stmt.Build()
 }
 
 func (wc *WhereCls) build(sb *strings.Builder, args []interface{}) []interface{} {
@@ -78,12 +91,12 @@ func (wc *WhereCls) build(sb *strings.Builder, args []interface{}) []interface{}
 }
 
 func (wc *WhereCls) And(col string, args ...interface{}) *WhereCls {
-	wc.and = &WhereCls{stmt: wc.stmt, col: col, args: args}
+	wc.and = &WhereCls{stmt: wc.stmt, col: col, args: args, root: wc.root}
 	return wc.and
 }
 
 func (wc *WhereCls) Or(col string, args ...interface{}) *WhereCls {
-	wc.or = &WhereCls{stmt: wc.stmt, col: col, args: args}
+	wc.or = &WhereCls{stmt: wc.stmt, col: col, args: args, root: wc.root}
 	return wc.or
 }
 
