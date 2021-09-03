@@ -90,6 +90,27 @@ func (wc *WhereCls) build(sb *strings.Builder, args []interface{}) []interface{}
 	return args
 }
 
+func (wc *WhereCls) SS() *SelectStmt {
+	if ss, ok := wc.stmt.(*SelectStmt); ok {
+		return ss
+	}
+	return nil
+}
+
+func (wc *WhereCls) US() *UpdateStmt {
+	if s, ok := wc.stmt.(*UpdateStmt); ok {
+		return s
+	}
+	return nil
+}
+
+func (wc *WhereCls) DS() *DeleteStmt {
+	if s, ok := wc.stmt.(*DeleteStmt); ok {
+		return s
+	}
+	return nil
+}
+
 func (wc *WhereCls) And(col string, args ...interface{}) *WhereCls {
 	wc.and = &WhereCls{stmt: wc.stmt, col: col, args: args, root: wc.root}
 	return wc.and
