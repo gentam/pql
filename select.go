@@ -9,11 +9,14 @@ type SelectStmt struct {
 	cols  []string
 	table string
 	where []*WhereCls
-
-	order string
-	desc  bool
+	order []order
 
 	limit, offset int
+}
+
+type order struct {
+	col  string
+	desc bool
 }
 
 func Select(cols ...string) *SelectStmt {
@@ -45,13 +48,18 @@ func (ss *SelectStmt) Build() (string, []interface{}) {
 		args = buildWhere(ss.where, sb, args)
 	}
 
-	if ss.order != "" {
+	if ss.order != nil {
 		sb.WriteString(" ORDER BY ")
-		sb.WriteString(ss.order)
-		if ss.desc {
-			sb.WriteString(" DESC")
-		} else {
-			sb.WriteString(" ASC")
+		for i, ord := range ss.order {
+			if i != 0 {
+				sb.WriteByte(',')
+			}
+			sb.WriteString(ord.col)
+			if ord.desc {
+				sb.WriteString(" DESC")
+			} else {
+				sb.WriteString(" ASC")
+			}
 		}
 	}
 
@@ -91,14 +99,12 @@ func (ss *SelectStmt) Apply(w *WhereCls) *SelectStmt {
 }
 
 func (ss *SelectStmt) Asc(col string) *SelectStmt {
-	ss.order = col
-	ss.desc = false
+	ss.order = append(ss.order, order{col: col, desc: false})
 	return ss
 }
 
 func (ss *SelectStmt) Desc(col string) *SelectStmt {
-	ss.order = col
-	ss.desc = true
+	ss.order = append(ss.order, order{col: col, desc: true})
 	return ss
 }
 

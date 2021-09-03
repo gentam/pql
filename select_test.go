@@ -80,9 +80,9 @@ func TestWhereApply(t *testing.T) {
 
 func TestSelectOrder(t *testing.T) {
 	q1, _ := Select().From("t").Asc("c").Build()
-	q2, _ := Select().From("t").Desc("c").Build()
+	q2, _ := Select().From("t").Desc("a").Asc("b").Desc("c").Build()
 	assert.Equal(t, "SELECT * FROM t ORDER BY c ASC", q1)
-	assert.Equal(t, "SELECT * FROM t ORDER BY c DESC", q2)
+	assert.Equal(t, "SELECT * FROM t ORDER BY a DESC,b ASC,c DESC", q2)
 }
 
 func TestSelectLimitOffset(t *testing.T) {
