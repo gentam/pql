@@ -7,11 +7,11 @@ import (
 
 type InsertStmt struct {
 	table string
-	m     map[string]interface{}
+	m     Map
 }
 
 func Insert(table string) *InsertStmt {
-	return &InsertStmt{table: table, m: make(map[string]interface{})}
+	return &InsertStmt{table: table, m: Map{}}
 }
 
 func (is *InsertStmt) Build() (string, []interface{}) {
