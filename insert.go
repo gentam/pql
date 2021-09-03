@@ -44,3 +44,8 @@ func (is *InsertStmt) Set(col string, val interface{}) *InsertStmt {
 	is.m[col] = val
 	return is
 }
+
+func (is *InsertStmt) Values(m Map) *InsertStmt {
+	is.m = m
+	return is
+}

@@ -44,6 +44,11 @@ func (us *UpdateStmt) Set(col string, val interface{}) *UpdateStmt {
 	return us
 }
 
+func (us *UpdateStmt) Values(m Map) *UpdateStmt {
+	us.m = m
+	return us
+}
+
 func (us *UpdateStmt) Where(col string, args ...interface{}) *WhereCls {
 	w := &WhereCls{stmt: us, col: col, args: args}
 	us.where = append(us.where, w)
