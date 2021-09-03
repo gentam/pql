@@ -35,3 +35,9 @@ func (ds *DeleteStatement) WhereNot(col string, args ...interface{}) *WhereCls {
 	ds.where = append(ds.where, wc)
 	return wc
 }
+
+func (ds *DeleteStatement) Apply(w *WhereCls) *DeleteStatement {
+	w.root.stmt = ds
+	ds.where = append(ds.where, w.root)
+	return ds
+}
