@@ -84,6 +84,12 @@ func (ss *SelectStmt) WhereNot(col string, args ...interface{}) *WhereCls {
 	return w
 }
 
+func (ss *SelectStmt) Apply(w *WhereCls) *SelectStmt {
+	w.root.stmt = ss
+	ss.where = append(ss.where, w.root)
+	return ss
+}
+
 func (ss *SelectStmt) Asc(col string) *SelectStmt {
 	ss.order = col
 	ss.desc = false

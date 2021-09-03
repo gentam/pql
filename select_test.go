@@ -71,6 +71,13 @@ func TestSelectWhere2(t *testing.T) {
 	assert.Equal(t, []interface{}{2, 3, 5, "6"}, a)
 }
 
+func TestWhereApply(t *testing.T) {
+	w := Where("c1").Eq(1).Or("c2").Eq(2)
+	q, a := Select().From("t").Apply(w).Build()
+	assert.Equal(t, "SELECT * FROM t WHERE (c1=$1 OR (c2=$2))", q)
+	assert.Equal(t, []interface{}{1, 2}, a)
+}
+
 func TestSelectOrder(t *testing.T) {
 	q1, _ := Select().From("t").Asc("c").Build()
 	q2, _ := Select().From("t").Desc("c").Build()
