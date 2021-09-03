@@ -11,6 +11,10 @@ func TestUpdate(t *testing.T) {
 	assert.Contains(t, []string{"UPDATE t SET c1=$1,c2=$2", "UPDATE t SET c2=$1,c1=$2"}, q)
 	assert.ElementsMatch(t, []interface{}{1, 2}, a)
 
+	q, a = Update("t").Values(Map{"c1": 1, "c2": 2}).Build()
+	assert.Contains(t, []string{"UPDATE t SET c1=$1,c2=$2", "UPDATE t SET c2=$1,c1=$2"}, q)
+	assert.ElementsMatch(t, []interface{}{1, 2}, a)
+
 	s := Update("t").Set("c1", 1)
 	s.Where("c2").Eq(2)
 	s.WhereNot("c3").Neq(3)
