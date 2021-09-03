@@ -7,12 +7,12 @@ import (
 
 type UpdateStmt struct {
 	table string
-	m     map[string]interface{}
+	m     Map
 	where []*WhereCls
 }
 
 func Update(table string) *UpdateStmt {
-	return &UpdateStmt{table: table, m: make(map[string]interface{})}
+	return &UpdateStmt{table: table, m: Map{}}
 }
 
 func (us *UpdateStmt) Build() (string, []interface{}) {
