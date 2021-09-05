@@ -18,8 +18,9 @@ func TestUpdate(t *testing.T) {
 	s := Update("t").Set("c1", 1)
 	s.Where("c2").Eq(2)
 	s.WhereNot("c3").Neq(3)
+	s.Returning("c1")
 	q, a = s.Build()
-	assert.Equal(t, "UPDATE t SET c1=$1 WHERE (c2=$2) AND (NOT c3<>$3)", q)
+	assert.Equal(t, "UPDATE t SET c1=$1 WHERE (c2=$2) AND (NOT c3<>$3) RETURNING c1", q)
 	assert.Equal(t, []interface{}{1, 2, 3}, a)
 
 	s = Update("t").Set("c0", 0)

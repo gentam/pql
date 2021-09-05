@@ -6,9 +6,10 @@ import (
 )
 
 type UpdateStmt struct {
-	table string
-	m     Map
-	where []*WhereCls
+	table     string
+	m         Map
+	where     []*WhereCls
+	returning []string
 }
 
 func Update(table string) *UpdateStmt {
@@ -34,6 +35,10 @@ func (us *UpdateStmt) Build() (string, []interface{}) {
 
 	if us.where != nil {
 		args = buildWhere(us.where, sb, args)
+	}
+
+	if us.returning != nil {
+		buildReturning(sb, us.returning)
 	}
 
 	return sb.String(), args
@@ -64,5 +69,10 @@ func (us *UpdateStmt) WhereNot(col string, args ...interface{}) *WhereCls {
 func (us *UpdateStmt) Apply(w *WhereCls) *UpdateStmt {
 	w.root.stmt = us
 	us.where = append(us.where, w.root)
+	return us
+}
+
+func (us *UpdateStmt) Returning(cols ...string) *UpdateStmt {
+	us.returning = append(us.returning, cols...)
 	return us
 }
