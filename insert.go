@@ -6,9 +6,8 @@ import (
 )
 
 type InsertStmt struct {
-	table string
-	m     Map
-
+	table     string
+	m         Map
 	returning []string
 }
 
@@ -40,13 +39,7 @@ func (is *InsertStmt) Build() (string, []interface{}) {
 	sb.WriteByte(')')
 
 	if is.returning != nil {
-		sb.WriteString(" RETURNING ")
-		for i, col := range is.returning {
-			if i != 0 {
-				sb.WriteByte(',')
-			}
-			sb.WriteString(col)
-		}
+		buildReturning(sb, is.returning)
 	}
 
 	return sb.String(), args
