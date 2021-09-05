@@ -8,6 +8,8 @@ import (
 type InsertStmt struct {
 	table string
 	m     Map
+
+	returning []string
 }
 
 func Insert(table string) *InsertStmt {
@@ -37,6 +39,16 @@ func (is *InsertStmt) Build() (string, []interface{}) {
 	}
 	sb.WriteByte(')')
 
+	if is.returning != nil {
+		sb.WriteString(" RETURNING ")
+		for i, col := range is.returning {
+			if i != 0 {
+				sb.WriteByte(',')
+			}
+			sb.WriteString(col)
+		}
+	}
+
 	return sb.String(), args
 }
 
@@ -47,5 +59,10 @@ func (is *InsertStmt) Set(col string, val interface{}) *InsertStmt {
 
 func (is *InsertStmt) Values(m Map) *InsertStmt {
 	is.m = m
+	return is
+}
+
+func (is *InsertStmt) Returning(cols ...string) *InsertStmt {
+	is.returning = append(is.returning, cols...)
 	return is
 }
