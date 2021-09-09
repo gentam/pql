@@ -23,6 +23,8 @@ func Select(cols ...string) *SelectStmt {
 	return &SelectStmt{cols: cols}
 }
 
+func (ss *SelectStmt) GetOffset() int { return ss.offset }
+
 func (ss *SelectStmt) Build() (string, []interface{}) {
 	sb := &strings.Builder{}
 	sb.WriteString("SELECT ")
