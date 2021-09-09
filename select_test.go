@@ -11,6 +11,9 @@ func TestSelect(t *testing.T) {
 	assert.Equal(t, "SELECT a,1,now()", q)
 	assert.Empty(t, a)
 
+	q, _ = Select("a").From("t").Select("b").Build()
+	assert.Equal(t, "SELECT a,b FROM t", q)
+
 	offset := Select().Offset(1).GetOffset()
 	assert.Equal(t, 1, offset)
 }
