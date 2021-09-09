@@ -94,6 +94,13 @@ func (ss *SelectStmt) WhereNot(col string, args ...interface{}) *WhereCls {
 	return w
 }
 
+func (ss *SelectStmt) WhereCond(cond bool, col string, args ...interface{}) *WhereCls {
+	if cond {
+		return ss.Where(col, args...)
+	}
+	return ss.WhereNot(col, args...)
+}
+
 func (ss *SelectStmt) Apply(w *WhereCls) *SelectStmt {
 	w.root.stmt = ss
 	ss.where = append(ss.where, w.root)

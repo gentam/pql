@@ -24,15 +24,14 @@ func TestSelectWhere1(t *testing.T) {
 	assert.Equal(t, "SELECT * FROM t WHERE (NOT true)", q)
 	assert.Empty(t, a)
 
-	q, a = Select().From("t").Where("expire <= now()").Build()
-	assert.Equal(t, "SELECT * FROM t WHERE (expire <= now())", q)
-	assert.Empty(t, a)
-
-	q, a = Select().From("t").Where("c > ?", 1).Build()
-	assert.Equal(t, "SELECT * FROM t WHERE (c > $1)", q)
+	s := Select().From("t")
+	s.WhereCond(true, "c1=?", 1)
+	s.WhereCond(false, "c2")
+	q, a = s.Build()
+	assert.Equal(t, "SELECT * FROM t WHERE (c1=$1) AND (NOT c2)", q)
 	assert.Equal(t, []interface{}{1}, a)
 
-	s := Select().From("t1")
+	s = Select().From("t1")
 	s.WhereNot("c1 in (?,?,?)", 1, 2, 3)
 	s.Where("c2 = any (select id from t2 where c <> ?)", "4")
 	q, a = s.Build()
