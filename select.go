@@ -110,6 +110,11 @@ func (ss *SelectStmt) Desc(col string) *SelectStmt {
 	return ss
 }
 
+func (ss *SelectStmt) Order(col string, desc bool) *SelectStmt {
+	ss.order = append(ss.order, order{col: col, desc: desc})
+	return ss
+}
+
 func (ss *SelectStmt) Limit(n int) *SelectStmt {
 	ss.limit = n
 	return ss
