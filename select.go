@@ -23,6 +23,11 @@ func Select(cols ...string) *SelectStmt {
 	return &SelectStmt{cols: cols}
 }
 
+func (ss *SelectStmt) Select(cols ...string) *SelectStmt {
+	ss.cols = append(ss.cols, cols...)
+	return ss
+}
+
 func (ss *SelectStmt) GetOffset() int { return ss.offset }
 
 func (ss *SelectStmt) Build() (string, []interface{}) {
