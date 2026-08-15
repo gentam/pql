@@ -32,15 +32,15 @@ const (
 	monoPost
 )
 
-func buildWhere(ws []*WhereCls, sb *strings.Builder, args []any) []any {
-	sb.WriteString(" WHERE (")
+func buildWhere(ws []*WhereCls, b *strings.Builder, args []any) []any {
+	b.WriteString(" WHERE (")
 	for i, w := range ws {
 		if i != 0 {
-			sb.WriteString(") AND (")
+			b.WriteString(") AND (")
 		}
-		args = w.build(sb, args)
+		args = w.build(b, args)
 	}
-	sb.WriteByte(')')
+	b.WriteByte(')')
 	return args
 }
 
@@ -54,38 +54,38 @@ func (wc *WhereCls) Build() (string, []any) {
 	return wc.root.stmt.Build()
 }
 
-func (wc *WhereCls) build(sb *strings.Builder, args []any) []any {
+func (wc *WhereCls) build(b *strings.Builder, args []any) []any {
 	if wc.op != "" {
 		switch wc.opType {
 		case bin:
-			sb.WriteString(wc.col)
-			sb.WriteString(wc.op)
+			b.WriteString(wc.col)
+			b.WriteString(wc.op)
 			args = append(args, wc.args...)
-			sb.WriteByte('$')
-			sb.WriteString(strconv.Itoa(len(args)))
+			b.WriteByte('$')
+			b.WriteString(strconv.Itoa(len(args)))
 		case monoPost:
-			sb.WriteString(wc.col)
-			sb.WriteString(wc.op)
+			b.WriteString(wc.col)
+			b.WriteString(wc.op)
 		}
 	} else if wc.args != nil {
 		for _, arg := range wc.args {
 			args = append(args, arg)
 			wc.col = strings.Replace(wc.col, "?", "$"+strconv.Itoa(len(args)), 1)
 		}
-		sb.WriteString(wc.col)
+		b.WriteString(wc.col)
 	} else {
-		sb.WriteString(wc.col)
+		b.WriteString(wc.col)
 	}
 
 	if wc.and != nil {
-		sb.WriteString(" AND (")
-		args = wc.and.build(sb, args)
-		sb.WriteByte(')')
+		b.WriteString(" AND (")
+		args = wc.and.build(b, args)
+		b.WriteByte(')')
 	}
 	if wc.or != nil {
-		sb.WriteString(" OR (")
-		args = wc.or.build(sb, args)
-		sb.WriteByte(')')
+		b.WriteString(" OR (")
+		args = wc.or.build(b, args)
+		b.WriteByte(')')
 	}
 
 	return args

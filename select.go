@@ -31,50 +31,50 @@ func (ss *SelectStmt) Select(cols ...string) *SelectStmt {
 func (ss *SelectStmt) GetOffset() int { return ss.offset }
 
 func (ss *SelectStmt) Build() (string, []any) {
-	sb := &strings.Builder{}
-	sb.WriteString("SELECT ")
+	b := &strings.Builder{}
+	b.WriteString("SELECT ")
 
 	if len(ss.cols) != 0 {
-		sb.WriteString(strings.Join(ss.cols, ","))
+		b.WriteString(strings.Join(ss.cols, ","))
 	} else {
-		sb.WriteByte('*')
+		b.WriteByte('*')
 	}
 
 	if ss.table != "" {
-		sb.WriteString(" FROM ")
-		sb.WriteString(ss.table)
+		b.WriteString(" FROM ")
+		b.WriteString(ss.table)
 	}
 
 	var args []any
 	if ss.where != nil {
-		args = buildWhere(ss.where, sb, args)
+		args = buildWhere(ss.where, b, args)
 	}
 
 	if ss.order != nil {
-		sb.WriteString(" ORDER BY ")
+		b.WriteString(" ORDER BY ")
 		for i, ord := range ss.order {
 			if i != 0 {
-				sb.WriteByte(',')
+				b.WriteByte(',')
 			}
-			sb.WriteString(ord.col)
+			b.WriteString(ord.col)
 			if ord.desc {
-				sb.WriteString(" DESC")
+				b.WriteString(" DESC")
 			} else {
-				sb.WriteString(" ASC")
+				b.WriteString(" ASC")
 			}
 		}
 	}
 
 	if ss.limit != 0 {
-		sb.WriteString(" LIMIT ")
-		sb.WriteString(strconv.Itoa(ss.limit))
+		b.WriteString(" LIMIT ")
+		b.WriteString(strconv.Itoa(ss.limit))
 	}
 	if ss.offset != 0 {
-		sb.WriteString(" OFFSET ")
-		sb.WriteString(strconv.Itoa(ss.offset))
+		b.WriteString(" OFFSET ")
+		b.WriteString(strconv.Itoa(ss.offset))
 	}
 
-	return sb.String(), args
+	return b.String(), args
 }
 
 func (ss *SelectStmt) From(table string) *SelectStmt {

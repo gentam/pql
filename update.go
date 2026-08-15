@@ -19,32 +19,32 @@ func Update(table string) *UpdateStmt {
 }
 
 func (us *UpdateStmt) Build() (string, []any) {
-	sb := &strings.Builder{}
-	sb.WriteString("UPDATE ")
-	sb.WriteString(us.table)
+	b := &strings.Builder{}
+	b.WriteString("UPDATE ")
+	b.WriteString(us.table)
 
-	sb.WriteString(" SET ")
+	b.WriteString(" SET ")
 	cols := slices.Sorted(maps.Keys(us.m))
 	args := make([]any, len(cols))
 	for i, col := range cols {
 		if i != 0 {
-			sb.WriteByte(',')
+			b.WriteByte(',')
 		}
-		sb.WriteString(col)
-		sb.WriteString("=$")
+		b.WriteString(col)
+		b.WriteString("=$")
 		args[i] = us.m[col]
-		sb.WriteString(strconv.Itoa(i + 1))
+		b.WriteString(strconv.Itoa(i + 1))
 	}
 
 	if us.where != nil {
-		args = buildWhere(us.where, sb, args)
+		args = buildWhere(us.where, b, args)
 	}
 
 	if us.returning != nil {
-		buildReturning(sb, us.returning)
+		buildReturning(b, us.returning)
 	}
 
-	return sb.String(), args
+	return b.String(), args
 }
 
 func (us *UpdateStmt) Set(col string, val any) *UpdateStmt {

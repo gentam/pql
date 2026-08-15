@@ -71,7 +71,7 @@ func (is *InsertStmt) ExecRet(ctx context.Context) pgx.Row {
 	return pool.QueryRow(ctx, query, args...)
 }
 
-func buildReturning(sb *strings.Builder, returning []string) {
-	sb.WriteString(" RETURNING ")
-	sb.WriteString(strings.Join(returning, ","))
+func buildReturning(b *strings.Builder, returning []string) {
+	b.WriteString(" RETURNING ")
+	b.WriteString(strings.Join(returning, ","))
 }

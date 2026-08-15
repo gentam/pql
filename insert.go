@@ -18,9 +18,9 @@ func Insert(table string) *InsertStmt {
 }
 
 func (is *InsertStmt) Build() (string, []any) {
-	sb := &strings.Builder{}
-	sb.WriteString("INSERT INTO ")
-	sb.WriteString(is.table)
+	b := &strings.Builder{}
+	b.WriteString("INSERT INTO ")
+	b.WriteString(is.table)
 
 	l := len(is.m)
 	cols := slices.Sorted(maps.Keys(is.m))
@@ -29,20 +29,20 @@ func (is *InsertStmt) Build() (string, []any) {
 		args[i] = is.m[col]
 	}
 
-	sb.WriteString(" (")
-	sb.WriteString(strings.Join(cols, ","))
-	sb.WriteString(") VALUES ($1")
+	b.WriteString(" (")
+	b.WriteString(strings.Join(cols, ","))
+	b.WriteString(") VALUES ($1")
 	for i := 2; i <= l; i++ {
-		sb.WriteString(",$")
-		sb.WriteString(strconv.Itoa(i))
+		b.WriteString(",$")
+		b.WriteString(strconv.Itoa(i))
 	}
-	sb.WriteByte(')')
+	b.WriteByte(')')
 
 	if is.returning != nil {
-		buildReturning(sb, is.returning)
+		buildReturning(b, is.returning)
 	}
 
-	return sb.String(), args
+	return b.String(), args
 }
 
 func (is *InsertStmt) Set(col string, val any) *InsertStmt {

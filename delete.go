@@ -13,20 +13,20 @@ func Delete(table string) *DeleteStmt {
 }
 
 func (ds *DeleteStmt) Build() (string, []any) {
-	sb := &strings.Builder{}
-	sb.WriteString("DELETE FROM ")
-	sb.WriteString(ds.table)
+	b := &strings.Builder{}
+	b.WriteString("DELETE FROM ")
+	b.WriteString(ds.table)
 
 	var args []any
 	if ds.where != nil {
-		args = buildWhere(ds.where, sb, args)
+		args = buildWhere(ds.where, b, args)
 	}
 
 	if ds.returning != nil {
-		buildReturning(sb, ds.returning)
+		buildReturning(b, ds.returning)
 	}
 
-	return sb.String(), args
+	return b.String(), args
 }
 
 func (ds *DeleteStmt) Where(col string, args ...any) *WhereCls {
