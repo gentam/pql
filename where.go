@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-type WhereCls struct {
+type WhereExpr struct {
 	stmt     Builder
 	col      string
 	exprArgs []any
@@ -14,22 +14,22 @@ type WhereCls struct {
 	opArg    any
 	hasOpArg bool
 
-	and  *WhereCls
-	or   *WhereCls
-	root *WhereCls
+	and  *WhereExpr
+	or   *WhereExpr
+	root *WhereExpr
 }
 
 type Builder interface {
 	Build() (string, []any, error)
 }
 
-func Where(col string, args ...any) *WhereCls {
-	wc := &WhereCls{col: col, exprArgs: args}
+func Where(col string, args ...any) *WhereExpr {
+	wc := &WhereExpr{col: col, exprArgs: args}
 	wc.root = wc
 	return wc
 }
 
-func buildWhere(ws []*WhereCls, b *strings.Builder, args []any) ([]any, error) {
+func buildWhere(ws []*WhereExpr, b *strings.Builder, args []any) ([]any, error) {
 	b.WriteString(" WHERE (")
 	for i, w := range ws {
 		if i != 0 {
@@ -45,7 +45,7 @@ func buildWhere(ws []*WhereCls, b *strings.Builder, args []any) ([]any, error) {
 	return args, nil
 }
 
-func (wc *WhereCls) Build() (string, []any, error) {
+func (wc *WhereExpr) Build() (string, []any, error) {
 	if wc.stmt != nil {
 		return wc.stmt.Build()
 	}
@@ -55,7 +55,7 @@ func (wc *WhereCls) Build() (string, []any, error) {
 	return wc.root.stmt.Build()
 }
 
-func (wc *WhereCls) build(b *strings.Builder, args []any) ([]any, error) {
+func (wc *WhereExpr) build(b *strings.Builder, args []any) ([]any, error) {
 	if strings.TrimSpace(wc.col) == "" {
 		return nil, fmt.Errorf("pql: WHERE condition is required")
 	}
@@ -107,72 +107,72 @@ func (wc *WhereCls) build(b *strings.Builder, args []any) ([]any, error) {
 	return args, nil
 }
 
-func (wc *WhereCls) And(col string, args ...any) *WhereCls {
-	wc.and = &WhereCls{stmt: wc.stmt, col: col, exprArgs: args, root: wc.root}
+func (wc *WhereExpr) And(col string, args ...any) *WhereExpr {
+	wc.and = &WhereExpr{stmt: wc.stmt, col: col, exprArgs: args, root: wc.root}
 	return wc.and
 }
 
-func (wc *WhereCls) Or(col string, args ...any) *WhereCls {
-	wc.or = &WhereCls{stmt: wc.stmt, col: col, exprArgs: args, root: wc.root}
+func (wc *WhereExpr) Or(col string, args ...any) *WhereExpr {
+	wc.or = &WhereExpr{stmt: wc.stmt, col: col, exprArgs: args, root: wc.root}
 	return wc.or
 }
 
-func (wc *WhereCls) IsNull() *WhereCls {
+func (wc *WhereExpr) IsNull() *WhereExpr {
 	return wc.setPostfix(" IS NULL")
 }
 
-func (wc *WhereCls) IsNotNull() *WhereCls {
+func (wc *WhereExpr) IsNotNull() *WhereExpr {
 	return wc.setPostfix(" IS NOT NULL")
 }
 
-func (wc *WhereCls) Eq(v any) *WhereCls {
+func (wc *WhereExpr) Eq(v any) *WhereExpr {
 	return wc.setBinary("=", v)
 }
 
-func (wc *WhereCls) Neq(v any) *WhereCls {
+func (wc *WhereExpr) Neq(v any) *WhereExpr {
 	return wc.setBinary("<>", v)
 }
 
-func (wc *WhereCls) Lt(v any) *WhereCls {
+func (wc *WhereExpr) Lt(v any) *WhereExpr {
 	return wc.setBinary("<", v)
 }
 
-func (wc *WhereCls) Gt(v any) *WhereCls {
+func (wc *WhereExpr) Gt(v any) *WhereExpr {
 	return wc.setBinary(">", v)
 }
 
-func (wc *WhereCls) Le(v any) *WhereCls {
+func (wc *WhereExpr) Le(v any) *WhereExpr {
 	return wc.setBinary("<=", v)
 }
 
-func (wc *WhereCls) Ge(v any) *WhereCls {
+func (wc *WhereExpr) Ge(v any) *WhereExpr {
 	return wc.setBinary(">=", v)
 }
 
-func (wc *WhereCls) Like(v any) *WhereCls {
+func (wc *WhereExpr) Like(v any) *WhereExpr {
 	return wc.setBinary(" LIKE ", v)
 }
 
-func (wc *WhereCls) Ilike(v any) *WhereCls {
+func (wc *WhereExpr) Ilike(v any) *WhereExpr {
 	return wc.setBinary(" ILIKE ", v)
 }
 
-func (wc *WhereCls) Contains(v any) *WhereCls {
+func (wc *WhereExpr) Contains(v any) *WhereExpr {
 	return wc.setBinary("@>", v)
 }
 
-func (wc *WhereCls) ContainedBy(v any) *WhereCls {
+func (wc *WhereExpr) ContainedBy(v any) *WhereExpr {
 	return wc.setBinary("<@", v)
 }
 
-func (wc *WhereCls) setBinary(op string, arg any) *WhereCls {
+func (wc *WhereExpr) setBinary(op string, arg any) *WhereExpr {
 	wc.op = op
 	wc.opArg = arg
 	wc.hasOpArg = true
 	return wc
 }
 
-func (wc *WhereCls) setPostfix(op string) *WhereCls {
+func (wc *WhereExpr) setPostfix(op string) *WhereExpr {
 	wc.op = op
 	wc.opArg = nil
 	wc.hasOpArg = false

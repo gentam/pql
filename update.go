@@ -11,7 +11,7 @@ import (
 type UpdateStmt struct {
 	table     string
 	m         Map
-	where     []*WhereCls
+	where     []*WhereExpr
 	returning []string
 }
 
@@ -72,19 +72,19 @@ func (us *UpdateStmt) Values(m Map) *UpdateStmt {
 	return us
 }
 
-func (us *UpdateStmt) Where(col string, args ...any) *WhereCls {
-	w := &WhereCls{stmt: us, col: col, exprArgs: args}
+func (us *UpdateStmt) Where(col string, args ...any) *WhereExpr {
+	w := &WhereExpr{stmt: us, col: col, exprArgs: args}
 	us.where = append(us.where, w)
 	return w
 }
 
-func (us *UpdateStmt) WhereNot(col string, args ...any) *WhereCls {
-	w := &WhereCls{stmt: us, col: "NOT " + col, exprArgs: args}
+func (us *UpdateStmt) WhereNot(col string, args ...any) *WhereExpr {
+	w := &WhereExpr{stmt: us, col: "NOT " + col, exprArgs: args}
 	us.where = append(us.where, w)
 	return w
 }
 
-func (us *UpdateStmt) Apply(w *WhereCls) *UpdateStmt {
+func (us *UpdateStmt) Apply(w *WhereExpr) *UpdateStmt {
 	if w == nil {
 		return us
 	}

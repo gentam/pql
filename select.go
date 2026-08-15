@@ -8,7 +8,7 @@ import (
 type SelectStmt struct {
 	cols  []string
 	table string
-	where []*WhereCls
+	where []*WhereExpr
 	order []Order
 
 	limit, offset int
@@ -72,26 +72,26 @@ func (ss *SelectStmt) From(table string) *SelectStmt {
 	return ss
 }
 
-func (ss *SelectStmt) Where(col string, args ...any) *WhereCls {
-	w := &WhereCls{stmt: ss, col: col, exprArgs: args}
+func (ss *SelectStmt) Where(col string, args ...any) *WhereExpr {
+	w := &WhereExpr{stmt: ss, col: col, exprArgs: args}
 	ss.where = append(ss.where, w)
 	return w
 }
 
-func (ss *SelectStmt) WhereNot(col string, args ...any) *WhereCls {
-	w := &WhereCls{stmt: ss, col: "NOT " + col, exprArgs: args}
+func (ss *SelectStmt) WhereNot(col string, args ...any) *WhereExpr {
+	w := &WhereExpr{stmt: ss, col: "NOT " + col, exprArgs: args}
 	ss.where = append(ss.where, w)
 	return w
 }
 
-func (ss *SelectStmt) WhereCond(cond bool, col string, args ...any) *WhereCls {
+func (ss *SelectStmt) WhereCond(cond bool, col string, args ...any) *WhereExpr {
 	if cond {
 		return ss.Where(col, args...)
 	}
 	return ss.WhereNot(col, args...)
 }
 
-func (ss *SelectStmt) Apply(w *WhereCls) *SelectStmt {
+func (ss *SelectStmt) Apply(w *WhereExpr) *SelectStmt {
 	if w == nil {
 		return ss
 	}

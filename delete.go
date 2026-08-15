@@ -7,7 +7,7 @@ import (
 
 type DeleteStmt struct {
 	table     string
-	where     []*WhereCls
+	where     []*WhereExpr
 	returning []string
 }
 
@@ -40,19 +40,19 @@ func (ds *DeleteStmt) Build() (string, []any, error) {
 	return b.String(), args, nil
 }
 
-func (ds *DeleteStmt) Where(col string, args ...any) *WhereCls {
-	wc := &WhereCls{stmt: ds, col: col, exprArgs: args}
+func (ds *DeleteStmt) Where(col string, args ...any) *WhereExpr {
+	wc := &WhereExpr{stmt: ds, col: col, exprArgs: args}
 	ds.where = append(ds.where, wc)
 	return wc
 }
 
-func (ds *DeleteStmt) WhereNot(col string, args ...any) *WhereCls {
-	wc := &WhereCls{stmt: ds, col: "NOT " + col, exprArgs: args}
+func (ds *DeleteStmt) WhereNot(col string, args ...any) *WhereExpr {
+	wc := &WhereExpr{stmt: ds, col: "NOT " + col, exprArgs: args}
 	ds.where = append(ds.where, wc)
 	return wc
 }
 
-func (ds *DeleteStmt) Apply(w *WhereCls) *DeleteStmt {
+func (ds *DeleteStmt) Apply(w *WhereExpr) *DeleteStmt {
 	if w == nil {
 		return ds
 	}

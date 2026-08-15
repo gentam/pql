@@ -5,22 +5,22 @@ import "testing"
 func TestWhereOperator(t *testing.T) {
 	tests := []struct {
 		name  string
-		apply func(*WhereCls)
+		apply func(*WhereExpr)
 		want  buildResult
 	}{
-		{name: "is null", apply: func(w *WhereCls) { w.IsNull() }, want: buildResult{query: "SELECT * FROM t WHERE (c IS NULL)"}},
-		{name: "is not null", apply: func(w *WhereCls) { w.IsNotNull() }, want: buildResult{query: "SELECT * FROM t WHERE (c IS NOT NULL)"}},
-		{name: "equal", apply: func(w *WhereCls) { w.Eq(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c=$1)", args: []any{1}}},
-		{name: "equal nil", apply: func(w *WhereCls) { w.Eq(nil) }, want: buildResult{query: "SELECT * FROM t WHERE (c=$1)", args: []any{nil}}},
-		{name: "not equal", apply: func(w *WhereCls) { w.Neq(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c<>$1)", args: []any{1}}},
-		{name: "less than", apply: func(w *WhereCls) { w.Lt(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c<$1)", args: []any{1}}},
-		{name: "greater than", apply: func(w *WhereCls) { w.Gt(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c>$1)", args: []any{1}}},
-		{name: "less or equal", apply: func(w *WhereCls) { w.Le(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c<=$1)", args: []any{1}}},
-		{name: "greater or equal", apply: func(w *WhereCls) { w.Ge(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c>=$1)", args: []any{1}}},
-		{name: "like", apply: func(w *WhereCls) { w.Like("a%") }, want: buildResult{query: "SELECT * FROM t WHERE (c LIKE $1)", args: []any{"a%"}}},
-		{name: "ilike", apply: func(w *WhereCls) { w.Ilike("a%") }, want: buildResult{query: "SELECT * FROM t WHERE (c ILIKE $1)", args: []any{"a%"}}},
-		{name: "contains", apply: func(w *WhereCls) { w.Contains([]int{1, 2}) }, want: buildResult{query: "SELECT * FROM t WHERE (c@>$1)", args: []any{[]int{1, 2}}}},
-		{name: "contained by", apply: func(w *WhereCls) { w.ContainedBy([]int{1, 2}) }, want: buildResult{query: "SELECT * FROM t WHERE (c<@$1)", args: []any{[]int{1, 2}}}},
+		{name: "is null", apply: func(w *WhereExpr) { w.IsNull() }, want: buildResult{query: "SELECT * FROM t WHERE (c IS NULL)"}},
+		{name: "is not null", apply: func(w *WhereExpr) { w.IsNotNull() }, want: buildResult{query: "SELECT * FROM t WHERE (c IS NOT NULL)"}},
+		{name: "equal", apply: func(w *WhereExpr) { w.Eq(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c=$1)", args: []any{1}}},
+		{name: "equal nil", apply: func(w *WhereExpr) { w.Eq(nil) }, want: buildResult{query: "SELECT * FROM t WHERE (c=$1)", args: []any{nil}}},
+		{name: "not equal", apply: func(w *WhereExpr) { w.Neq(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c<>$1)", args: []any{1}}},
+		{name: "less than", apply: func(w *WhereExpr) { w.Lt(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c<$1)", args: []any{1}}},
+		{name: "greater than", apply: func(w *WhereExpr) { w.Gt(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c>$1)", args: []any{1}}},
+		{name: "less or equal", apply: func(w *WhereExpr) { w.Le(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c<=$1)", args: []any{1}}},
+		{name: "greater or equal", apply: func(w *WhereExpr) { w.Ge(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c>=$1)", args: []any{1}}},
+		{name: "like", apply: func(w *WhereExpr) { w.Like("a%") }, want: buildResult{query: "SELECT * FROM t WHERE (c LIKE $1)", args: []any{"a%"}}},
+		{name: "ilike", apply: func(w *WhereExpr) { w.Ilike("a%") }, want: buildResult{query: "SELECT * FROM t WHERE (c ILIKE $1)", args: []any{"a%"}}},
+		{name: "contains", apply: func(w *WhereExpr) { w.Contains([]int{1, 2}) }, want: buildResult{query: "SELECT * FROM t WHERE (c@>$1)", args: []any{[]int{1, 2}}}},
+		{name: "contained by", apply: func(w *WhereExpr) { w.ContainedBy([]int{1, 2}) }, want: buildResult{query: "SELECT * FROM t WHERE (c<@$1)", args: []any{[]int{1, 2}}}},
 	}
 
 	for _, tt := range tests {
