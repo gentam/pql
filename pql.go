@@ -27,17 +27,6 @@ func (ss *SelectStmt) QueryRow(ctx context.Context) pgx.Row {
 	return pool.QueryRow(ctx, query, args...)
 }
 
-func (ss *SelectStmt) QueryFunc(ctx context.Context, scans []any, f func() error) error {
-	query, args := ss.Build()
-	rows, err := pool.Query(ctx, query, args...)
-	if err != nil {
-		return err
-	}
-
-	_, err = pgx.ForEachRow(rows, scans, f)
-	return err
-}
-
 func (us *UpdateStmt) Exec(ctx context.Context) error {
 	query, args := us.Build()
 	_, err := pool.Exec(ctx, query, args...)
