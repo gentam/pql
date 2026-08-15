@@ -94,6 +94,20 @@ func TestBuildError(t *testing.T) {
 			},
 			want: "pql: WHERE placeholder count 0 does not match argument count 1",
 		},
+		{
+			name: "invalid null ordering",
+			build: func() Builder {
+				return Select().From("t").Asc("a", NullsOrder(0))
+			},
+			want: "pql: invalid NULLS order 0",
+		},
+		{
+			name: "multiple null ordering options",
+			build: func() Builder {
+				return Select().From("t").Asc("a", NullsFirst, NullsLast)
+			},
+			want: "pql: ORDER BY accepts at most 1 NULLS option, got 2",
+		},
 	}
 
 	for _, tt := range tests {

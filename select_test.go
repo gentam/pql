@@ -18,6 +18,15 @@ func TestSelectBuild(t *testing.T) {
 			stmt: Select().From("t").Desc("a").Asc("b").Order("c", true).Order("d", false),
 			want: buildResult{query: "SELECT * FROM t ORDER BY a DESC,b ASC,c DESC,d ASC"},
 		},
+		{
+			name: "null ordering",
+			stmt: Select().From("t").
+				Asc("a", NullsFirst).
+				Asc("b", NullsLast).
+				Desc("c", NullsFirst).
+				Desc("d", NullsLast),
+			want: buildResult{query: "SELECT * FROM t ORDER BY a ASC NULLS FIRST,b ASC NULLS LAST,c DESC NULLS FIRST,d DESC NULLS LAST"},
+		},
 		{name: "limit and offset", stmt: Select().From("t").Limit(1).Offset(10), want: buildResult{query: "SELECT * FROM t LIMIT 1 OFFSET 10"}},
 	}
 

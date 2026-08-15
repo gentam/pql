@@ -9,14 +9,9 @@ type SelectStmt struct {
 	cols  []string
 	table string
 	where []*WhereCls
-	order []order
+	order []Order
 
 	limit, offset int
-}
-
-type order struct {
-	col  string
-	desc bool
 }
 
 func Select(cols ...string) *SelectStmt {
@@ -55,17 +50,8 @@ func (ss *SelectStmt) Build() (string, []any, error) {
 	}
 
 	if ss.order != nil {
-		b.WriteString(" ORDER BY ")
-		for i, ord := range ss.order {
-			if i != 0 {
-				b.WriteByte(',')
-			}
-			b.WriteString(ord.col)
-			if ord.desc {
-				b.WriteString(" DESC")
-			} else {
-				b.WriteString(" ASC")
-			}
+		if err := buildOrder(b, ss.order); err != nil {
+			return "", nil, err
 		}
 	}
 
@@ -117,18 +103,29 @@ func (ss *SelectStmt) Apply(w *WhereCls) *SelectStmt {
 	return ss
 }
 
-func (ss *SelectStmt) Asc(col string) *SelectStmt {
-	ss.order = append(ss.order, order{col: col})
+func (ss *SelectStmt) Asc(col string, nulls ...NullsOrder) *SelectStmt {
+	ss.order = append(ss.order, Asc(col, nulls...))
 	return ss
 }
 
-func (ss *SelectStmt) Desc(col string) *SelectStmt {
-	ss.order = append(ss.order, order{col: col, desc: true})
+func (ss *SelectStmt) Desc(col string, nulls ...NullsOrder) *SelectStmt {
+	ss.order = append(ss.order, Desc(col, nulls...))
 	return ss
 }
 
-func (ss *SelectStmt) Order(col string, desc bool) *SelectStmt {
-	ss.order = append(ss.order, order{col: col, desc: desc})
+func (ss *SelectStmt) Order(col string, desc bool, nulls ...NullsOrder) *SelectStmt {
+	ss.order = append(ss.order, newOrder(col, desc, nulls...))
+	return ss
+}
+
+// Orders returns a copy of the statement's ordering.
+func (ss *SelectStmt) Orders() []Order {
+	return append([]Order(nil), ss.order...)
+}
+
+// SetOrders replaces the statement's ordering with a copy of orders.
+func (ss *SelectStmt) SetOrders(orders ...Order) *SelectStmt {
+	ss.order = append([]Order(nil), orders...)
 	return ss
 }
 
