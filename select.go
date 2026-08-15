@@ -106,6 +106,12 @@ func (ss *SelectStmt) WhereCond(cond bool, col string, args ...any) *WhereCls {
 }
 
 func (ss *SelectStmt) Apply(w *WhereCls) *SelectStmt {
+	if w == nil {
+		return ss
+	}
+	if w.root == nil {
+		w.root = w
+	}
 	w.root.stmt = ss
 	ss.where = append(ss.where, w.root)
 	return ss

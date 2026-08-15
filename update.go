@@ -60,6 +60,9 @@ func (us *UpdateStmt) Build() (string, []any, error) {
 }
 
 func (us *UpdateStmt) Set(col string, val any) *UpdateStmt {
+	if us.m == nil {
+		us.m = Map{}
+	}
 	us.m[col] = val
 	return us
 }
@@ -82,6 +85,12 @@ func (us *UpdateStmt) WhereNot(col string, args ...any) *WhereCls {
 }
 
 func (us *UpdateStmt) Apply(w *WhereCls) *UpdateStmt {
+	if w == nil {
+		return us
+	}
+	if w.root == nil {
+		w.root = w
+	}
 	w.root.stmt = us
 	us.where = append(us.where, w.root)
 	return us

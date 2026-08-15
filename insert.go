@@ -54,6 +54,9 @@ func (is *InsertStmt) Build() (string, []any, error) {
 }
 
 func (is *InsertStmt) Set(col string, val any) *InsertStmt {
+	if is.m == nil {
+		is.m = Map{}
+	}
 	is.m[col] = val
 	return is
 }

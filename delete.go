@@ -53,6 +53,12 @@ func (ds *DeleteStmt) WhereNot(col string, args ...any) *WhereCls {
 }
 
 func (ds *DeleteStmt) Apply(w *WhereCls) *DeleteStmt {
+	if w == nil {
+		return ds
+	}
+	if w.root == nil {
+		w.root = w
+	}
 	w.root.stmt = ds
 	ds.where = append(ds.where, w.root)
 	return ds

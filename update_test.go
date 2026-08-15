@@ -19,6 +19,16 @@ func TestUpdateBuild(t *testing.T) {
 			want:  buildResult{query: "UPDATE t SET c1=$1,c2=$2", args: []any{1, 2}},
 		},
 		{
+			name:  "set after nil values",
+			build: func() *UpdateStmt { return Update("t").Values(nil).Set("c", 1) },
+			want:  buildResult{query: "UPDATE t SET c=$1", args: []any{1}},
+		},
+		{
+			name:  "nil applied clause",
+			build: func() *UpdateStmt { return Update("t").Set("c", 1).Apply(nil) },
+			want:  buildResult{query: "UPDATE t SET c=$1", args: []any{1}},
+		},
+		{
 			name: "where and returning",
 			build: func() *UpdateStmt {
 				s := Update("t").Set("c1", 1)

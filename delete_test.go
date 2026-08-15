@@ -36,6 +36,11 @@ func TestDeleteBuild(t *testing.T) {
 				args:  []any{2, 1},
 			},
 		},
+		{
+			name:  "nil applied clause",
+			build: func() *DeleteStmt { return Delete("t").Apply(nil) },
+			want:  buildResult{query: "DELETE FROM t"},
+		},
 	}
 
 	for _, tt := range tests {

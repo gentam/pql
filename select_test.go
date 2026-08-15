@@ -90,6 +90,11 @@ func TestSelectWhere(t *testing.T) {
 			want: buildResult{query: "SELECT * FROM t WHERE (c1=$1 OR (c2=$2))", args: []any{1, 2}},
 		},
 		{
+			name:  "nil applied clause",
+			build: func() *SelectStmt { return Select().From("t").Apply(nil) },
+			want:  buildResult{query: "SELECT * FROM t"},
+		},
+		{
 			name: "postfix operator on expression with placeholders",
 			build: func() *SelectStmt {
 				s := Select().From("t")
