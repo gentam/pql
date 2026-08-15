@@ -5,8 +5,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Map map[string]interface{}
@@ -27,9 +27,14 @@ func (ss *SelectStmt) QueryRow(ctx context.Context) pgx.Row {
 	return pool.QueryRow(ctx, query, args...)
 }
 
-func (ss *SelectStmt) QueryFunc(ctx context.Context, scans []interface{}, f func(pgx.QueryFuncRow) error) error {
+func (ss *SelectStmt) QueryFunc(ctx context.Context, scans []interface{}, f func() error) error {
 	query, args := ss.Build()
-	_, err := pool.QueryFunc(ctx, query, args, scans, f)
+	rows, err := pool.Query(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	_, err = pgx.ForEachRow(rows, scans, f)
 	return err
 }
 
