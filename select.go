@@ -87,13 +87,13 @@ func (ss *SelectStmt) From(table string) *SelectStmt {
 }
 
 func (ss *SelectStmt) Where(col string, args ...any) *WhereCls {
-	w := &WhereCls{stmt: ss, col: col, args: args}
+	w := &WhereCls{stmt: ss, col: col, exprArgs: args}
 	ss.where = append(ss.where, w)
 	return w
 }
 
 func (ss *SelectStmt) WhereNot(col string, args ...any) *WhereCls {
-	w := &WhereCls{stmt: ss, col: "NOT " + col, args: args}
+	w := &WhereCls{stmt: ss, col: "NOT " + col, exprArgs: args}
 	ss.where = append(ss.where, w)
 	return w
 }

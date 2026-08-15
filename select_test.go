@@ -89,6 +89,30 @@ func TestSelectWhere(t *testing.T) {
 			},
 			want: buildResult{query: "SELECT * FROM t WHERE (c1=$1 OR (c2=$2))", args: []any{1, 2}},
 		},
+		{
+			name: "postfix operator on expression with placeholders",
+			build: func() *SelectStmt {
+				s := Select().From("t")
+				s.Where("(select 1 from t2 where c1>? and c2<?)", 1, 2).IsNull()
+				return s
+			},
+			want: buildResult{
+				query: "SELECT * FROM t WHERE ((select 1 from t2 where c1>$1 and c2<$2) IS NULL)",
+				args:  []any{1, 2},
+			},
+		},
+		{
+			name: "binary operator on expression with placeholders",
+			build: func() *SelectStmt {
+				s := Select().From("t")
+				s.Where("coalesce(?,?)", 1, 2).Eq(3)
+				return s
+			},
+			want: buildResult{
+				query: "SELECT * FROM t WHERE (coalesce($1,$2)=$3)",
+				args:  []any{1, 2, 3},
+			},
+		},
 	}
 
 	for _, tt := range tests {

@@ -81,18 +81,18 @@ func TestBuildError(t *testing.T) {
 			want: "pql: WHERE placeholder count 2 does not match argument count 1",
 		},
 		{
-			name: "binary operator with extra argument",
+			name: "binary expression argument without placeholder",
 			build: func() Builder {
 				return Select().From("t").Where("a", 1).Eq(2)
 			},
-			want: `pql: WHERE operator "=" requires 1 argument, got 2`,
+			want: "pql: WHERE placeholder count 0 does not match argument count 1",
 		},
 		{
-			name: "postfix operator with argument",
+			name: "postfix expression argument without placeholder",
 			build: func() Builder {
 				return Select().From("t").Where("a", 1).IsNull()
 			},
-			want: `pql: WHERE operator "IS NULL" requires 0 arguments, got 1`,
+			want: "pql: WHERE placeholder count 0 does not match argument count 1",
 		},
 	}
 

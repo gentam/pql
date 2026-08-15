@@ -41,13 +41,13 @@ func (ds *DeleteStmt) Build() (string, []any, error) {
 }
 
 func (ds *DeleteStmt) Where(col string, args ...any) *WhereCls {
-	wc := &WhereCls{stmt: ds, col: col, args: args}
+	wc := &WhereCls{stmt: ds, col: col, exprArgs: args}
 	ds.where = append(ds.where, wc)
 	return wc
 }
 
 func (ds *DeleteStmt) WhereNot(col string, args ...any) *WhereCls {
-	wc := &WhereCls{stmt: ds, col: "NOT " + col, args: args}
+	wc := &WhereCls{stmt: ds, col: "NOT " + col, exprArgs: args}
 	ds.where = append(ds.where, wc)
 	return wc
 }

@@ -70,13 +70,13 @@ func (us *UpdateStmt) Values(m Map) *UpdateStmt {
 }
 
 func (us *UpdateStmt) Where(col string, args ...any) *WhereCls {
-	w := &WhereCls{stmt: us, col: col, args: args}
+	w := &WhereCls{stmt: us, col: col, exprArgs: args}
 	us.where = append(us.where, w)
 	return w
 }
 
 func (us *UpdateStmt) WhereNot(col string, args ...any) *WhereCls {
-	w := &WhereCls{stmt: us, col: "NOT " + col, args: args}
+	w := &WhereCls{stmt: us, col: "NOT " + col, exprArgs: args}
 	us.where = append(us.where, w)
 	return w
 }

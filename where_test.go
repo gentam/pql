@@ -11,6 +11,7 @@ func TestWhereOperator(t *testing.T) {
 		{name: "is null", apply: func(w *WhereCls) { w.IsNull() }, want: buildResult{query: "SELECT * FROM t WHERE (c IS NULL)"}},
 		{name: "is not null", apply: func(w *WhereCls) { w.IsNotNull() }, want: buildResult{query: "SELECT * FROM t WHERE (c IS NOT NULL)"}},
 		{name: "equal", apply: func(w *WhereCls) { w.Eq(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c=$1)", args: []any{1}}},
+		{name: "equal nil", apply: func(w *WhereCls) { w.Eq(nil) }, want: buildResult{query: "SELECT * FROM t WHERE (c=$1)", args: []any{nil}}},
 		{name: "not equal", apply: func(w *WhereCls) { w.Neq(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c<>$1)", args: []any{1}}},
 		{name: "less than", apply: func(w *WhereCls) { w.Lt(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c<$1)", args: []any{1}}},
 		{name: "greater than", apply: func(w *WhereCls) { w.Gt(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c>$1)", args: []any{1}}},
