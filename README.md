@@ -49,7 +49,8 @@ if err != nil {
 ```
 
 Both `Insert` and `Update` accept values individually with `Set`, or as a
-`pql.Map` with `Values`.
+`pql.Map` with `Values`. Calls to either method are cumulative and may be mixed
+in any order; later values replace earlier values for the same column.
 
 ## WHERE expressions
 

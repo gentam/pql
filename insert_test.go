@@ -19,6 +19,15 @@ func TestInsertBuild(t *testing.T) {
 			want: buildResult{query: "INSERT INTO t (c1,c2) VALUES ($1,$2)", args: []any{1, 2}},
 		},
 		{
+			name: "values merge with existing values",
+			stmt: Insert("t").Set("c1", 1).Set("c2", 2).
+				Values(Map{"c2": 20, "c3": 3}),
+			want: buildResult{
+				query: "INSERT INTO t (c1,c2,c3) VALUES ($1,$2,$3)",
+				args:  []any{1, 20, 3},
+			},
+		},
+		{
 			name: "set after nil values",
 			stmt: Insert("t").Values(nil).Set("c", 1),
 			want: buildResult{query: "INSERT INTO t (c) VALUES ($1)", args: []any{1}},

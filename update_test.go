@@ -19,6 +19,17 @@ func TestUpdateBuild(t *testing.T) {
 			want:  buildResult{query: "UPDATE t SET c1=$1,c2=$2", args: []any{1, 2}},
 		},
 		{
+			name: "values merge with existing values",
+			build: func() *UpdateStmt {
+				return Update("t").Set("c1", 1).Set("c2", 2).
+					Values(Map{"c2": 20, "c3": 3})
+			},
+			want: buildResult{
+				query: "UPDATE t SET c1=$1,c2=$2,c3=$3",
+				args:  []any{1, 20, 3},
+			},
+		},
+		{
 			name:  "set after nil values",
 			build: func() *UpdateStmt { return Update("t").Values(nil).Set("c", 1) },
 			want:  buildResult{query: "UPDATE t SET c=$1", args: []any{1}},
