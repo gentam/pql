@@ -37,10 +37,10 @@ func TestSelectBuild(t *testing.T) {
 	}
 }
 
-func TestSelectGetOffset(t *testing.T) {
+func TestSelectOffsetValue(t *testing.T) {
 	const want = 10
-	if got := Select().Offset(want).GetOffset(); got != want {
-		t.Fatalf("GetOffset() = %d, want %d", got, want)
+	if got := Select().Offset(want).OffsetValue(); got != want {
+		t.Fatalf("OffsetValue() = %d, want %d", got, want)
 	}
 }
 

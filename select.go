@@ -23,7 +23,7 @@ func (ss *SelectStmt) Select(cols ...string) *SelectStmt {
 	return ss
 }
 
-func (ss *SelectStmt) GetOffset() int { return ss.offset }
+func (ss *SelectStmt) OffsetValue() int { return ss.offset }
 
 func (ss *SelectStmt) Build() (string, []any, error) {
 	b := &strings.Builder{}
