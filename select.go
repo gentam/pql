@@ -30,7 +30,7 @@ func (ss *SelectStmt) Select(cols ...string) *SelectStmt {
 
 func (ss *SelectStmt) GetOffset() int { return ss.offset }
 
-func (ss *SelectStmt) Build() (string, []any) {
+func (ss *SelectStmt) Build() (string, []any, error) {
 	b := &strings.Builder{}
 	b.WriteString("SELECT ")
 
@@ -47,7 +47,11 @@ func (ss *SelectStmt) Build() (string, []any) {
 
 	var args []any
 	if ss.where != nil {
-		args = buildWhere(ss.where, b, args)
+		var err error
+		args, err = buildWhere(ss.where, b, args)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 
 	if ss.order != nil {
@@ -74,7 +78,7 @@ func (ss *SelectStmt) Build() (string, []any) {
 		b.WriteString(strconv.Itoa(ss.offset))
 	}
 
-	return b.String(), args
+	return b.String(), args, nil
 }
 
 func (ss *SelectStmt) From(table string) *SelectStmt {

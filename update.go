@@ -1,6 +1,7 @@
 package pql
 
 import (
+	"fmt"
 	"maps"
 	"slices"
 	"strconv"
@@ -18,7 +19,14 @@ func Update(table string) *UpdateStmt {
 	return &UpdateStmt{table: table, m: Map{}}
 }
 
-func (us *UpdateStmt) Build() (string, []any) {
+func (us *UpdateStmt) Build() (string, []any, error) {
+	if strings.TrimSpace(us.table) == "" {
+		return "", nil, fmt.Errorf("pql: UPDATE table is required")
+	}
+	if len(us.m) == 0 {
+		return "", nil, fmt.Errorf("pql: UPDATE values are required")
+	}
+
 	b := &strings.Builder{}
 	b.WriteString("UPDATE ")
 	b.WriteString(us.table)
@@ -37,14 +45,18 @@ func (us *UpdateStmt) Build() (string, []any) {
 	}
 
 	if us.where != nil {
-		args = buildWhere(us.where, b, args)
+		var err error
+		args, err = buildWhere(us.where, b, args)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 
 	if us.returning != nil {
 		buildReturning(b, us.returning)
 	}
 
-	return b.String(), args
+	return b.String(), args, nil
 }
 
 func (us *UpdateStmt) Set(col string, val any) *UpdateStmt {

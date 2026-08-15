@@ -1,6 +1,7 @@
 package pql
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -18,7 +19,7 @@ type WhereCls struct {
 }
 
 type Builder interface {
-	Build() (string, []any)
+	Build() (string, []any, error)
 }
 
 func Where(col string, args ...any) *WhereCls {
@@ -32,43 +33,60 @@ const (
 	monoPost
 )
 
-func buildWhere(ws []*WhereCls, b *strings.Builder, args []any) []any {
+func buildWhere(ws []*WhereCls, b *strings.Builder, args []any) ([]any, error) {
 	b.WriteString(" WHERE (")
 	for i, w := range ws {
 		if i != 0 {
 			b.WriteString(") AND (")
 		}
-		args = w.build(b, args)
+		var err error
+		args, err = w.build(b, args)
+		if err != nil {
+			return nil, err
+		}
 	}
 	b.WriteByte(')')
-	return args
+	return args, nil
 }
 
-func (wc *WhereCls) Build() (string, []any) {
+func (wc *WhereCls) Build() (string, []any, error) {
 	if wc.stmt != nil {
 		return wc.stmt.Build()
 	}
-	if wc.root.stmt == nil {
-		return "error: cannot build detatched WHERE clause", nil
+	if wc.root == nil || wc.root.stmt == nil {
+		return "", nil, fmt.Errorf("pql: cannot build detached WHERE clause")
 	}
 	return wc.root.stmt.Build()
 }
 
-func (wc *WhereCls) build(b *strings.Builder, args []any) []any {
+func (wc *WhereCls) build(b *strings.Builder, args []any) ([]any, error) {
+	if strings.TrimSpace(wc.col) == "" {
+		return nil, fmt.Errorf("pql: WHERE condition is required")
+	}
+
 	if wc.op != "" {
 		switch wc.opType {
 		case bin:
+			if len(wc.args) != 1 {
+				return nil, fmt.Errorf("pql: WHERE operator %q requires 1 argument, got %d", wc.op, len(wc.args))
+			}
 			b.WriteString(wc.col)
 			b.WriteString(wc.op)
 			args = append(args, wc.args...)
 			b.WriteByte('$')
 			b.WriteString(strconv.Itoa(len(args)))
 		case monoPost:
+			if len(wc.args) != 0 {
+				return nil, fmt.Errorf("pql: WHERE operator %q requires 0 arguments, got %d", strings.TrimSpace(wc.op), len(wc.args))
+			}
 			b.WriteString(wc.col)
 			b.WriteString(wc.op)
 		}
 	} else if wc.args != nil {
 		col := wc.col
+		if placeholders := strings.Count(col, "?"); placeholders != len(wc.args) {
+			return nil, fmt.Errorf("pql: WHERE placeholder count %d does not match argument count %d", placeholders, len(wc.args))
+		}
 		for _, arg := range wc.args {
 			args = append(args, arg)
 			col = strings.Replace(col, "?", "$"+strconv.Itoa(len(args)), 1)
@@ -80,16 +98,24 @@ func (wc *WhereCls) build(b *strings.Builder, args []any) []any {
 
 	if wc.and != nil {
 		b.WriteString(" AND (")
-		args = wc.and.build(b, args)
+		var err error
+		args, err = wc.and.build(b, args)
+		if err != nil {
+			return nil, err
+		}
 		b.WriteByte(')')
 	}
 	if wc.or != nil {
 		b.WriteString(" OR (")
-		args = wc.or.build(b, args)
+		var err error
+		args, err = wc.or.build(b, args)
+		if err != nil {
+			return nil, err
+		}
 		b.WriteByte(')')
 	}
 
-	return args
+	return args, nil
 }
 
 func (wc *WhereCls) And(col string, args ...any) *WhereCls {

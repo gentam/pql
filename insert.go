@@ -1,6 +1,7 @@
 package pql
 
 import (
+	"fmt"
 	"maps"
 	"slices"
 	"strconv"
@@ -17,7 +18,14 @@ func Insert(table string) *InsertStmt {
 	return &InsertStmt{table: table, m: Map{}}
 }
 
-func (is *InsertStmt) Build() (string, []any) {
+func (is *InsertStmt) Build() (string, []any, error) {
+	if strings.TrimSpace(is.table) == "" {
+		return "", nil, fmt.Errorf("pql: INSERT table is required")
+	}
+	if len(is.m) == 0 {
+		return "", nil, fmt.Errorf("pql: INSERT values are required")
+	}
+
 	b := &strings.Builder{}
 	b.WriteString("INSERT INTO ")
 	b.WriteString(is.table)
@@ -42,7 +50,7 @@ func (is *InsertStmt) Build() (string, []any) {
 		buildReturning(b, is.returning)
 	}
 
-	return b.String(), args
+	return b.String(), args, nil
 }
 
 func (is *InsertStmt) Set(col string, val any) *InsertStmt {

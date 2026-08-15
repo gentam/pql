@@ -18,46 +18,70 @@ func Init(p *pgxpool.Pool) {
 }
 
 func (ss *SelectStmt) Query(ctx context.Context) (pgx.Rows, error) {
-	query, args := ss.Build()
+	query, args, err := ss.Build()
+	if err != nil {
+		return nil, err
+	}
 	return pool.Query(ctx, query, args...)
 }
 
-func (ss *SelectStmt) QueryRow(ctx context.Context) pgx.Row {
-	query, args := ss.Build()
-	return pool.QueryRow(ctx, query, args...)
+func (ss *SelectStmt) QueryRow(ctx context.Context) (pgx.Row, error) {
+	query, args, err := ss.Build()
+	if err != nil {
+		return nil, err
+	}
+	return pool.QueryRow(ctx, query, args...), nil
 }
 
 func (us *UpdateStmt) Exec(ctx context.Context) error {
-	query, args := us.Build()
-	_, err := pool.Exec(ctx, query, args...)
+	query, args, err := us.Build()
+	if err != nil {
+		return err
+	}
+	_, err = pool.Exec(ctx, query, args...)
 	return err
 }
 
-func (us *UpdateStmt) ExecRet(ctx context.Context) pgx.Row {
-	query, args := us.Build()
-	return pool.QueryRow(ctx, query, args...)
+func (us *UpdateStmt) ExecRet(ctx context.Context) (pgx.Row, error) {
+	query, args, err := us.Build()
+	if err != nil {
+		return nil, err
+	}
+	return pool.QueryRow(ctx, query, args...), nil
 }
 
 func (ds *DeleteStmt) Exec(ctx context.Context) error {
-	query, args := ds.Build()
-	_, err := pool.Exec(ctx, query, args...)
+	query, args, err := ds.Build()
+	if err != nil {
+		return err
+	}
+	_, err = pool.Exec(ctx, query, args...)
 	return err
 }
 
-func (ds *DeleteStmt) ExecRet(ctx context.Context) pgx.Row {
-	query, args := ds.Build()
-	return pool.QueryRow(ctx, query, args...)
+func (ds *DeleteStmt) ExecRet(ctx context.Context) (pgx.Row, error) {
+	query, args, err := ds.Build()
+	if err != nil {
+		return nil, err
+	}
+	return pool.QueryRow(ctx, query, args...), nil
 }
 
 func (is *InsertStmt) Exec(ctx context.Context) error {
-	query, args := is.Build()
-	_, err := pool.Exec(ctx, query, args...)
+	query, args, err := is.Build()
+	if err != nil {
+		return err
+	}
+	_, err = pool.Exec(ctx, query, args...)
 	return err
 }
 
-func (is *InsertStmt) ExecRet(ctx context.Context) pgx.Row {
-	query, args := is.Build()
-	return pool.QueryRow(ctx, query, args...)
+func (is *InsertStmt) ExecRet(ctx context.Context) (pgx.Row, error) {
+	query, args, err := is.Build()
+	if err != nil {
+		return nil, err
+	}
+	return pool.QueryRow(ctx, query, args...), nil
 }
 
 func buildReturning(b *strings.Builder, returning []string) {

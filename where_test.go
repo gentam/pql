@@ -44,7 +44,7 @@ func TestWhereLogicalChain(t *testing.T) {
 
 func TestWhereBuild(t *testing.T) {
 	t.Run("detached clause", func(t *testing.T) {
-		assertBuild(t, Where("c"), buildResult{query: "error: cannot build detatched WHERE clause"})
+		assertBuild(t, Where("c"), buildResult{err: "pql: cannot build detached WHERE clause"})
 	})
 
 	t.Run("attached clause", func(t *testing.T) {

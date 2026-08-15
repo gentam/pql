@@ -1,6 +1,9 @@
 package pql
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 type DeleteStmt struct {
 	table     string
@@ -12,21 +15,29 @@ func Delete(table string) *DeleteStmt {
 	return &DeleteStmt{table: table}
 }
 
-func (ds *DeleteStmt) Build() (string, []any) {
+func (ds *DeleteStmt) Build() (string, []any, error) {
+	if strings.TrimSpace(ds.table) == "" {
+		return "", nil, fmt.Errorf("pql: DELETE table is required")
+	}
+
 	b := &strings.Builder{}
 	b.WriteString("DELETE FROM ")
 	b.WriteString(ds.table)
 
 	var args []any
 	if ds.where != nil {
-		args = buildWhere(ds.where, b, args)
+		var err error
+		args, err = buildWhere(ds.where, b, args)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 
 	if ds.returning != nil {
 		buildReturning(b, ds.returning)
 	}
 
-	return b.String(), args
+	return b.String(), args, nil
 }
 
 func (ds *DeleteStmt) Where(col string, args ...any) *WhereCls {
