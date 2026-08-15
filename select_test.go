@@ -9,6 +9,7 @@ func TestSelectBuild(t *testing.T) {
 		want buildResult
 	}{
 		{name: "default columns", stmt: Select(), want: buildResult{query: "SELECT *"}},
+		{name: "empty columns", stmt: Select([]string{}...), want: buildResult{query: "SELECT *"}},
 		{name: "columns", stmt: Select("a", "1", "now()"), want: buildResult{query: "SELECT a,1,now()"}},
 		{name: "from and chained select", stmt: Select("a").From("t").Select("b"), want: buildResult{query: "SELECT a,b FROM t"}},
 		{name: "ascending order", stmt: Select().From("t").Asc("c"), want: buildResult{query: "SELECT * FROM t ORDER BY c ASC"}},

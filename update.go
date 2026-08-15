@@ -24,15 +24,16 @@ func (us *UpdateStmt) Build() (string, []any) {
 	sb.WriteString(us.table)
 
 	sb.WriteString(" SET ")
-	var args []any
-	for _, col := range slices.Sorted(maps.Keys(us.m)) {
-		if len(args) != 0 {
+	cols := slices.Sorted(maps.Keys(us.m))
+	args := make([]any, len(cols))
+	for i, col := range cols {
+		if i != 0 {
 			sb.WriteByte(',')
 		}
 		sb.WriteString(col)
 		sb.WriteString("=$")
-		args = append(args, us.m[col])
-		sb.WriteString(strconv.Itoa(len(args)))
+		args[i] = us.m[col]
+		sb.WriteString(strconv.Itoa(i + 1))
 	}
 
 	if us.where != nil {

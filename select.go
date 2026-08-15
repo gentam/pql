@@ -34,13 +34,8 @@ func (ss *SelectStmt) Build() (string, []any) {
 	sb := &strings.Builder{}
 	sb.WriteString("SELECT ")
 
-	if ss.cols != nil {
-		for i, col := range ss.cols {
-			if i != 0 {
-				sb.WriteByte(',')
-			}
-			sb.WriteString(col)
-		}
+	if len(ss.cols) != 0 {
+		sb.WriteString(strings.Join(ss.cols, ","))
 	} else {
 		sb.WriteByte('*')
 	}

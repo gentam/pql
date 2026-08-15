@@ -23,16 +23,14 @@ func (is *InsertStmt) Build() (string, []any) {
 	sb.WriteString(is.table)
 
 	l := len(is.m)
-	args := make([]any, 0, l)
-	sb.WriteString(" (")
-	for _, col := range slices.Sorted(maps.Keys(is.m)) {
-		if len(args) != 0 {
-			sb.WriteByte(',')
-		}
-		sb.WriteString(col)
-		args = append(args, is.m[col])
+	cols := slices.Sorted(maps.Keys(is.m))
+	args := make([]any, l)
+	for i, col := range cols {
+		args[i] = is.m[col]
 	}
 
+	sb.WriteString(" (")
+	sb.WriteString(strings.Join(cols, ","))
 	sb.WriteString(") VALUES ($1")
 	for i := 2; i <= l; i++ {
 		sb.WriteString(",$")

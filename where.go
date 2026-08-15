@@ -61,7 +61,8 @@ func (wc *WhereCls) build(sb *strings.Builder, args []any) []any {
 			sb.WriteString(wc.col)
 			sb.WriteString(wc.op)
 			args = append(args, wc.args...)
-			sb.WriteString("$" + strconv.Itoa(len(args)))
+			sb.WriteByte('$')
+			sb.WriteString(strconv.Itoa(len(args)))
 		case monoPost:
 			sb.WriteString(wc.col)
 			sb.WriteString(wc.op)

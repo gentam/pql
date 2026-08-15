@@ -73,10 +73,5 @@ func (is *InsertStmt) ExecRet(ctx context.Context) pgx.Row {
 
 func buildReturning(sb *strings.Builder, returning []string) {
 	sb.WriteString(" RETURNING ")
-	for i, col := range returning {
-		if i != 0 {
-			sb.WriteByte(',')
-		}
-		sb.WriteString(col)
-	}
+	sb.WriteString(strings.Join(returning, ","))
 }
