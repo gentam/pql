@@ -61,3 +61,19 @@ func TestUpdateBuild(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateValuesClone(t *testing.T) {
+	values := Map{"c": 1}
+	stmt := Update("t").Values(values)
+
+	values["c"] = 2
+	stmt.Set("d", 3)
+
+	assertBuild(t, stmt, buildResult{
+		query: "UPDATE t SET c=$1,d=$2",
+		args:  []any{1, 3},
+	})
+	if _, ok := values["d"]; ok {
+		t.Error("Set modified the map passed to Values")
+	}
+}

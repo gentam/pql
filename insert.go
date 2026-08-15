@@ -62,7 +62,7 @@ func (is *InsertStmt) Set(col string, val any) *InsertStmt {
 }
 
 func (is *InsertStmt) Values(m Map) *InsertStmt {
-	is.m = m
+	is.m = maps.Clone(m)
 	return is
 }
 

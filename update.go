@@ -68,7 +68,7 @@ func (us *UpdateStmt) Set(col string, val any) *UpdateStmt {
 }
 
 func (us *UpdateStmt) Values(m Map) *UpdateStmt {
-	us.m = m
+	us.m = maps.Clone(m)
 	return us
 }
 
