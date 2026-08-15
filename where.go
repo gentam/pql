@@ -68,11 +68,12 @@ func (wc *WhereCls) build(b *strings.Builder, args []any) []any {
 			b.WriteString(wc.op)
 		}
 	} else if wc.args != nil {
+		col := wc.col
 		for _, arg := range wc.args {
 			args = append(args, arg)
-			wc.col = strings.Replace(wc.col, "?", "$"+strconv.Itoa(len(args)), 1)
+			col = strings.Replace(col, "?", "$"+strconv.Itoa(len(args)), 1)
 		}
-		b.WriteString(wc.col)
+		b.WriteString(col)
 	} else {
 		b.WriteString(wc.col)
 	}

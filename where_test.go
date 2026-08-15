@@ -63,11 +63,28 @@ func TestWhereBuild(t *testing.T) {
 		})
 	})
 
-	t.Run("repeated build", func(t *testing.T) {
-		s := Update("t").Set("c1", 1)
-		s.Where("c2=?", 2)
-		want := buildResult{query: "UPDATE t SET c1=$1 WHERE (c2=$2)", args: []any{1, 2}}
-		assertBuild(t, s, want)
-		assertBuild(t, s, want)
+	t.Run("build after statement mutation", func(t *testing.T) {
+		s := Update("t").Set("b", 2)
+		s.Where("c=?", 3)
+		assertBuild(t, s, buildResult{query: "UPDATE t SET b=$1 WHERE (c=$2)", args: []any{2, 3}})
+
+		s.Set("a", 1)
+		assertBuild(t, s, buildResult{query: "UPDATE t SET a=$1,b=$2 WHERE (c=$3)", args: []any{1, 2, 3}})
+	})
+
+	t.Run("reuse detached clause", func(t *testing.T) {
+		w := Where("c=?", 2)
+		assertBuild(t, Update("t").Set("a", 1).Apply(w), buildResult{
+			query: "UPDATE t SET a=$1 WHERE (c=$2)",
+			args:  []any{1, 2},
+		})
+		assertBuild(t, Select().From("t").Apply(w), buildResult{
+			query: "SELECT * FROM t WHERE (c=$1)",
+			args:  []any{2},
+		})
+		assertBuild(t, Delete("t").Apply(w), buildResult{
+			query: "DELETE FROM t WHERE (c=$1)",
+			args:  []any{2},
+		})
 	})
 }
