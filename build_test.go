@@ -7,7 +7,7 @@ import (
 
 type buildResult struct {
 	query string
-	args  []interface{}
+	args  []any
 }
 
 func assertBuild(t *testing.T, b Builder, want buildResult) {

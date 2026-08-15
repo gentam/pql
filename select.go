@@ -30,7 +30,7 @@ func (ss *SelectStmt) Select(cols ...string) *SelectStmt {
 
 func (ss *SelectStmt) GetOffset() int { return ss.offset }
 
-func (ss *SelectStmt) Build() (string, []interface{}) {
+func (ss *SelectStmt) Build() (string, []any) {
 	sb := &strings.Builder{}
 	sb.WriteString("SELECT ")
 
@@ -50,7 +50,7 @@ func (ss *SelectStmt) Build() (string, []interface{}) {
 		sb.WriteString(ss.table)
 	}
 
-	var args []interface{}
+	var args []any
 	if ss.where != nil {
 		args = buildWhere(ss.where, sb, args)
 	}
@@ -87,19 +87,19 @@ func (ss *SelectStmt) From(table string) *SelectStmt {
 	return ss
 }
 
-func (ss *SelectStmt) Where(col string, args ...interface{}) *WhereCls {
+func (ss *SelectStmt) Where(col string, args ...any) *WhereCls {
 	w := &WhereCls{stmt: ss, col: col, args: args}
 	ss.where = append(ss.where, w)
 	return w
 }
 
-func (ss *SelectStmt) WhereNot(col string, args ...interface{}) *WhereCls {
+func (ss *SelectStmt) WhereNot(col string, args ...any) *WhereCls {
 	w := &WhereCls{stmt: ss, col: "NOT " + col, args: args}
 	ss.where = append(ss.where, w)
 	return w
 }
 
-func (ss *SelectStmt) WhereCond(cond bool, col string, args ...interface{}) *WhereCls {
+func (ss *SelectStmt) WhereCond(cond bool, col string, args ...any) *WhereCls {
 	if cond {
 		return ss.Where(col, args...)
 	}
@@ -113,7 +113,7 @@ func (ss *SelectStmt) Apply(w *WhereCls) *SelectStmt {
 }
 
 func (ss *SelectStmt) Asc(col string) *SelectStmt {
-	ss.order = append(ss.order, order{col: col, desc: false})
+	ss.order = append(ss.order, order{col: col})
 	return ss
 }
 

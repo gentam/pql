@@ -12,12 +12,12 @@ func Delete(table string) *DeleteStmt {
 	return &DeleteStmt{table: table}
 }
 
-func (ds *DeleteStmt) Build() (string, []interface{}) {
+func (ds *DeleteStmt) Build() (string, []any) {
 	sb := &strings.Builder{}
 	sb.WriteString("DELETE FROM ")
 	sb.WriteString(ds.table)
 
-	var args []interface{}
+	var args []any
 	if ds.where != nil {
 		args = buildWhere(ds.where, sb, args)
 	}
@@ -29,13 +29,13 @@ func (ds *DeleteStmt) Build() (string, []interface{}) {
 	return sb.String(), args
 }
 
-func (ds *DeleteStmt) Where(col string, args ...interface{}) *WhereCls {
+func (ds *DeleteStmt) Where(col string, args ...any) *WhereCls {
 	wc := &WhereCls{stmt: ds, col: col, args: args}
 	ds.where = append(ds.where, wc)
 	return wc
 }
 
-func (ds *DeleteStmt) WhereNot(col string, args ...interface{}) *WhereCls {
+func (ds *DeleteStmt) WhereNot(col string, args ...any) *WhereCls {
 	wc := &WhereCls{stmt: ds, col: "NOT " + col, args: args}
 	ds.where = append(ds.where, wc)
 	return wc

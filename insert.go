@@ -15,13 +15,13 @@ func Insert(table string) *InsertStmt {
 	return &InsertStmt{table: table, m: Map{}}
 }
 
-func (is *InsertStmt) Build() (string, []interface{}) {
+func (is *InsertStmt) Build() (string, []any) {
 	sb := &strings.Builder{}
 	sb.WriteString("INSERT INTO ")
 	sb.WriteString(is.table)
 
 	l := len(is.m)
-	args := make([]interface{}, 0, l)
+	args := make([]any, 0, l)
 	sb.WriteString(" (")
 	for col, val := range is.m {
 		if len(args) != 0 {
@@ -45,7 +45,7 @@ func (is *InsertStmt) Build() (string, []interface{}) {
 	return sb.String(), args
 }
 
-func (is *InsertStmt) Set(col string, val interface{}) *InsertStmt {
+func (is *InsertStmt) Set(col string, val any) *InsertStmt {
 	is.m[col] = val
 	return is
 }

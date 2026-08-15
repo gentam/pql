@@ -16,15 +16,15 @@ func Update(table string) *UpdateStmt {
 	return &UpdateStmt{table: table, m: Map{}}
 }
 
-func (us *UpdateStmt) Build() (string, []interface{}) {
+func (us *UpdateStmt) Build() (string, []any) {
 	sb := &strings.Builder{}
 	sb.WriteString("UPDATE ")
 	sb.WriteString(us.table)
 
 	sb.WriteString(" SET ")
-	var args []interface{}
+	var args []any
 	for col, val := range us.m {
-		if args != nil {
+		if len(args) != 0 {
 			sb.WriteByte(',')
 		}
 		sb.WriteString(col)
@@ -44,7 +44,7 @@ func (us *UpdateStmt) Build() (string, []interface{}) {
 	return sb.String(), args
 }
 
-func (us *UpdateStmt) Set(col string, val interface{}) *UpdateStmt {
+func (us *UpdateStmt) Set(col string, val any) *UpdateStmt {
 	us.m[col] = val
 	return us
 }
@@ -54,13 +54,13 @@ func (us *UpdateStmt) Values(m Map) *UpdateStmt {
 	return us
 }
 
-func (us *UpdateStmt) Where(col string, args ...interface{}) *WhereCls {
+func (us *UpdateStmt) Where(col string, args ...any) *WhereCls {
 	w := &WhereCls{stmt: us, col: col, args: args}
 	us.where = append(us.where, w)
 	return w
 }
 
-func (us *UpdateStmt) WhereNot(col string, args ...interface{}) *WhereCls {
+func (us *UpdateStmt) WhereNot(col string, args ...any) *WhereCls {
 	w := &WhereCls{stmt: us, col: "NOT " + col, args: args}
 	us.where = append(us.where, w)
 	return w

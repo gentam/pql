@@ -10,16 +10,16 @@ func TestWhereOperator(t *testing.T) {
 	}{
 		{name: "is null", apply: func(w *WhereCls) { w.IsNull() }, want: buildResult{query: "SELECT * FROM t WHERE (c IS NULL)"}},
 		{name: "is not null", apply: func(w *WhereCls) { w.IsNotNull() }, want: buildResult{query: "SELECT * FROM t WHERE (c IS NOT NULL)"}},
-		{name: "equal", apply: func(w *WhereCls) { w.Eq(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c=$1)", args: []interface{}{1}}},
-		{name: "not equal", apply: func(w *WhereCls) { w.Neq(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c<>$1)", args: []interface{}{1}}},
-		{name: "less than", apply: func(w *WhereCls) { w.Lt(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c<$1)", args: []interface{}{1}}},
-		{name: "greater than", apply: func(w *WhereCls) { w.Gt(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c>$1)", args: []interface{}{1}}},
-		{name: "less or equal", apply: func(w *WhereCls) { w.Le(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c<=$1)", args: []interface{}{1}}},
-		{name: "greater or equal", apply: func(w *WhereCls) { w.Ge(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c>=$1)", args: []interface{}{1}}},
-		{name: "like", apply: func(w *WhereCls) { w.Like("a%") }, want: buildResult{query: "SELECT * FROM t WHERE (c LIKE $1)", args: []interface{}{"a%"}}},
-		{name: "ilike", apply: func(w *WhereCls) { w.Ilike("a%") }, want: buildResult{query: "SELECT * FROM t WHERE (c ILIKE $1)", args: []interface{}{"a%"}}},
-		{name: "contains", apply: func(w *WhereCls) { w.Contains([]int{1, 2}) }, want: buildResult{query: "SELECT * FROM t WHERE (c@>$1)", args: []interface{}{[]int{1, 2}}}},
-		{name: "contained by", apply: func(w *WhereCls) { w.ContainedBy([]int{1, 2}) }, want: buildResult{query: "SELECT * FROM t WHERE (c<@$1)", args: []interface{}{[]int{1, 2}}}},
+		{name: "equal", apply: func(w *WhereCls) { w.Eq(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c=$1)", args: []any{1}}},
+		{name: "not equal", apply: func(w *WhereCls) { w.Neq(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c<>$1)", args: []any{1}}},
+		{name: "less than", apply: func(w *WhereCls) { w.Lt(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c<$1)", args: []any{1}}},
+		{name: "greater than", apply: func(w *WhereCls) { w.Gt(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c>$1)", args: []any{1}}},
+		{name: "less or equal", apply: func(w *WhereCls) { w.Le(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c<=$1)", args: []any{1}}},
+		{name: "greater or equal", apply: func(w *WhereCls) { w.Ge(1) }, want: buildResult{query: "SELECT * FROM t WHERE (c>=$1)", args: []any{1}}},
+		{name: "like", apply: func(w *WhereCls) { w.Like("a%") }, want: buildResult{query: "SELECT * FROM t WHERE (c LIKE $1)", args: []any{"a%"}}},
+		{name: "ilike", apply: func(w *WhereCls) { w.Ilike("a%") }, want: buildResult{query: "SELECT * FROM t WHERE (c ILIKE $1)", args: []any{"a%"}}},
+		{name: "contains", apply: func(w *WhereCls) { w.Contains([]int{1, 2}) }, want: buildResult{query: "SELECT * FROM t WHERE (c@>$1)", args: []any{[]int{1, 2}}}},
+		{name: "contained by", apply: func(w *WhereCls) { w.ContainedBy([]int{1, 2}) }, want: buildResult{query: "SELECT * FROM t WHERE (c<@$1)", args: []any{[]int{1, 2}}}},
 	}
 
 	for _, tt := range tests {
@@ -38,7 +38,7 @@ func TestWhereLogicalChain(t *testing.T) {
 
 	assertBuild(t, s, buildResult{
 		query: "SELECT * FROM t WHERE (c1 OR (c2=$1 AND (c3 = $2))) AND (NOT c4 AND (c5 < $3 OR (c6=$4)))",
-		args:  []interface{}{2, 3, 5, "6"},
+		args:  []any{2, 3, 5, "6"},
 	})
 }
 
@@ -50,7 +50,7 @@ func TestWhereBuild(t *testing.T) {
 	t.Run("attached clause", func(t *testing.T) {
 		s := Select().From("t")
 		w := s.Where("c").Eq(1)
-		assertBuild(t, w, buildResult{query: "SELECT * FROM t WHERE (c=$1)", args: []interface{}{1}})
+		assertBuild(t, w, buildResult{query: "SELECT * FROM t WHERE (c=$1)", args: []any{1}})
 	})
 
 	t.Run("nested clause attached after creation", func(t *testing.T) {
@@ -59,14 +59,14 @@ func TestWhereBuild(t *testing.T) {
 		Select().From("t").Apply(root)
 		assertBuild(t, child, buildResult{
 			query: "SELECT * FROM t WHERE (c1=$1 AND (c2=$2))",
-			args:  []interface{}{1, 2},
+			args:  []any{1, 2},
 		})
 	})
 
 	t.Run("repeated build", func(t *testing.T) {
 		s := Update("t").Set("c1", 1)
 		s.Where("c2=?", 2)
-		want := buildResult{query: "UPDATE t SET c1=$1 WHERE (c2=$2)", args: []interface{}{1, 2}}
+		want := buildResult{query: "UPDATE t SET c1=$1 WHERE (c2=$2)", args: []any{1, 2}}
 		assertBuild(t, s, want)
 		assertBuild(t, s, want)
 	})

@@ -19,7 +19,7 @@ func TestDeleteBuild(t *testing.T) {
 			},
 			want: buildResult{
 				query: "DELETE FROM t WHERE (c1=$1) AND (NOT c2 IS NOT NULL) RETURNING c1",
-				args:  []interface{}{1},
+				args:  []any{1},
 			},
 		},
 		{
@@ -33,7 +33,7 @@ func TestDeleteBuild(t *testing.T) {
 			},
 			want: buildResult{
 				query: "DELETE FROM t WHERE (c0<=now() OR (c0 IS NULL OR (c2=$1))) AND (NOT c1=$2)",
-				args:  []interface{}{2, 1},
+				args:  []any{2, 1},
 			},
 		},
 	}

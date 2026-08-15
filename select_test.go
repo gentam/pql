@@ -66,7 +66,7 @@ func TestSelectWhere(t *testing.T) {
 				s.WhereCond(false, "c2")
 				return s
 			},
-			want: buildResult{query: "SELECT * FROM t WHERE (c1=$1) AND (NOT c2)", args: []interface{}{1}},
+			want: buildResult{query: "SELECT * FROM t WHERE (c1=$1) AND (NOT c2)", args: []any{1}},
 		},
 		{
 			name: "multiple raw placeholders",
@@ -78,7 +78,7 @@ func TestSelectWhere(t *testing.T) {
 			},
 			want: buildResult{
 				query: "SELECT * FROM t1 WHERE (NOT c1 in ($1,$2,$3)) AND (c2 = any (select id from t2 where c <> $4))",
-				args:  []interface{}{1, 2, 3, "4"},
+				args:  []any{1, 2, 3, "4"},
 			},
 		},
 		{
@@ -86,7 +86,7 @@ func TestSelectWhere(t *testing.T) {
 			build: func() *SelectStmt {
 				return Select().From("t").Apply(Where("c1").Eq(1).Or("c2").Eq(2))
 			},
-			want: buildResult{query: "SELECT * FROM t WHERE (c1=$1 OR (c2=$2))", args: []interface{}{1, 2}},
+			want: buildResult{query: "SELECT * FROM t WHERE (c1=$1 OR (c2=$2))", args: []any{1, 2}},
 		},
 	}
 

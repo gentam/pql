@@ -12,16 +12,16 @@ func TestUpdateBuild(t *testing.T) {
 			name:  "set",
 			build: func() *UpdateStmt { return Update("t").Set("c1", 1).Set("c2", 2) },
 			wants: []buildResult{
-				{query: "UPDATE t SET c1=$1,c2=$2", args: []interface{}{1, 2}},
-				{query: "UPDATE t SET c2=$1,c1=$2", args: []interface{}{2, 1}},
+				{query: "UPDATE t SET c1=$1,c2=$2", args: []any{1, 2}},
+				{query: "UPDATE t SET c2=$1,c1=$2", args: []any{2, 1}},
 			},
 		},
 		{
 			name:  "values",
 			build: func() *UpdateStmt { return Update("t").Values(Map{"c1": 1, "c2": 2}) },
 			wants: []buildResult{
-				{query: "UPDATE t SET c1=$1,c2=$2", args: []interface{}{1, 2}},
-				{query: "UPDATE t SET c2=$1,c1=$2", args: []interface{}{2, 1}},
+				{query: "UPDATE t SET c1=$1,c2=$2", args: []any{1, 2}},
+				{query: "UPDATE t SET c2=$1,c1=$2", args: []any{2, 1}},
 			},
 		},
 		{
@@ -34,7 +34,7 @@ func TestUpdateBuild(t *testing.T) {
 			},
 			wants: []buildResult{{
 				query: "UPDATE t SET c1=$1 WHERE (c2=$2) AND (NOT c3<>$3) RETURNING c1",
-				args:  []interface{}{1, 2, 3},
+				args:  []any{1, 2, 3},
 			}},
 		},
 		{
@@ -46,7 +46,7 @@ func TestUpdateBuild(t *testing.T) {
 			},
 			wants: []buildResult{{
 				query: "UPDATE t SET c0=$1 WHERE (c1=$2) AND (c2<>$3 OR (c3 IS NULL))",
-				args:  []interface{}{0, 1, 2},
+				args:  []any{0, 1, 2},
 			}},
 		},
 	}

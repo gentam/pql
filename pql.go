@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type Map map[string]interface{}
+type Map map[string]any
 
 var pool *pgxpool.Pool
 
@@ -27,7 +27,7 @@ func (ss *SelectStmt) QueryRow(ctx context.Context) pgx.Row {
 	return pool.QueryRow(ctx, query, args...)
 }
 
-func (ss *SelectStmt) QueryFunc(ctx context.Context, scans []interface{}, f func() error) error {
+func (ss *SelectStmt) QueryFunc(ctx context.Context, scans []any, f func() error) error {
 	query, args := ss.Build()
 	rows, err := pool.Query(ctx, query, args...)
 	if err != nil {

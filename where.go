@@ -10,7 +10,7 @@ type WhereCls struct {
 	col    string
 	op     string
 	opType int // default bin
-	args   []interface{}
+	args   []any
 
 	and  *WhereCls
 	or   *WhereCls
@@ -18,10 +18,10 @@ type WhereCls struct {
 }
 
 type Builder interface {
-	Build() (string, []interface{})
+	Build() (string, []any)
 }
 
-func Where(col string, args ...interface{}) *WhereCls {
+func Where(col string, args ...any) *WhereCls {
 	wc := &WhereCls{col: col, args: args}
 	wc.root = wc
 	return wc
@@ -32,7 +32,7 @@ const (
 	monoPost
 )
 
-func buildWhere(ws []*WhereCls, sb *strings.Builder, args []interface{}) []interface{} {
+func buildWhere(ws []*WhereCls, sb *strings.Builder, args []any) []any {
 	sb.WriteString(" WHERE (")
 	for i, w := range ws {
 		if i != 0 {
@@ -44,7 +44,7 @@ func buildWhere(ws []*WhereCls, sb *strings.Builder, args []interface{}) []inter
 	return args
 }
 
-func (wc *WhereCls) Build() (string, []interface{}) {
+func (wc *WhereCls) Build() (string, []any) {
 	if wc.stmt != nil {
 		return wc.stmt.Build()
 	}
@@ -54,7 +54,7 @@ func (wc *WhereCls) Build() (string, []interface{}) {
 	return wc.root.stmt.Build()
 }
 
-func (wc *WhereCls) build(sb *strings.Builder, args []interface{}) []interface{} {
+func (wc *WhereCls) build(sb *strings.Builder, args []any) []any {
 	if wc.op != "" {
 		switch wc.opType {
 		case bin:
@@ -111,12 +111,12 @@ func (wc *WhereCls) DS() *DeleteStmt {
 	return nil
 }
 
-func (wc *WhereCls) And(col string, args ...interface{}) *WhereCls {
+func (wc *WhereCls) And(col string, args ...any) *WhereCls {
 	wc.and = &WhereCls{stmt: wc.stmt, col: col, args: args, root: wc.root}
 	return wc.and
 }
 
-func (wc *WhereCls) Or(col string, args ...interface{}) *WhereCls {
+func (wc *WhereCls) Or(col string, args ...any) *WhereCls {
 	wc.or = &WhereCls{stmt: wc.stmt, col: col, args: args, root: wc.root}
 	return wc.or
 }
@@ -133,61 +133,61 @@ func (wc *WhereCls) IsNotNull() *WhereCls {
 	return wc
 }
 
-func (wc *WhereCls) Eq(v interface{}) *WhereCls {
+func (wc *WhereCls) Eq(v any) *WhereCls {
 	wc.op = "="
 	wc.args = append(wc.args, v)
 	return wc
 }
 
-func (wc *WhereCls) Neq(v interface{}) *WhereCls {
+func (wc *WhereCls) Neq(v any) *WhereCls {
 	wc.op = "<>"
 	wc.args = append(wc.args, v)
 	return wc
 }
 
-func (wc *WhereCls) Lt(v interface{}) *WhereCls {
+func (wc *WhereCls) Lt(v any) *WhereCls {
 	wc.op = "<"
 	wc.args = append(wc.args, v)
 	return wc
 }
 
-func (wc *WhereCls) Gt(v interface{}) *WhereCls {
+func (wc *WhereCls) Gt(v any) *WhereCls {
 	wc.op = ">"
 	wc.args = append(wc.args, v)
 	return wc
 }
 
-func (wc *WhereCls) Le(v interface{}) *WhereCls {
+func (wc *WhereCls) Le(v any) *WhereCls {
 	wc.op = "<="
 	wc.args = append(wc.args, v)
 	return wc
 }
 
-func (wc *WhereCls) Ge(v interface{}) *WhereCls {
+func (wc *WhereCls) Ge(v any) *WhereCls {
 	wc.op = ">="
 	wc.args = append(wc.args, v)
 	return wc
 }
 
-func (wc *WhereCls) Like(v interface{}) *WhereCls {
+func (wc *WhereCls) Like(v any) *WhereCls {
 	wc.op = " LIKE "
 	wc.args = append(wc.args, v)
 	return wc
 }
 
-func (wc *WhereCls) Ilike(v interface{}) *WhereCls {
+func (wc *WhereCls) Ilike(v any) *WhereCls {
 	wc.op = " ILIKE "
 	wc.args = append(wc.args, v)
 	return wc
 }
 
-func (wc *WhereCls) Contains(v interface{}) *WhereCls {
+func (wc *WhereCls) Contains(v any) *WhereCls {
 	wc.op = "@>"
 	wc.args = append(wc.args, v)
 	return wc
 }
 
-func (wc *WhereCls) ContainedBy(v interface{}) *WhereCls {
+func (wc *WhereCls) ContainedBy(v any) *WhereCls {
 	wc.op = "<@"
 	wc.args = append(wc.args, v)
 	return wc
