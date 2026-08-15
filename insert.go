@@ -1,6 +1,8 @@
 package pql
 
 import (
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -23,12 +25,12 @@ func (is *InsertStmt) Build() (string, []any) {
 	l := len(is.m)
 	args := make([]any, 0, l)
 	sb.WriteString(" (")
-	for col, val := range is.m {
+	for _, col := range slices.Sorted(maps.Keys(is.m)) {
 		if len(args) != 0 {
 			sb.WriteByte(',')
 		}
 		sb.WriteString(col)
-		args = append(args, val)
+		args = append(args, is.m[col])
 	}
 
 	sb.WriteString(") VALUES ($1")

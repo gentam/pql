@@ -1,6 +1,8 @@
 package pql
 
 import (
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -23,13 +25,13 @@ func (us *UpdateStmt) Build() (string, []any) {
 
 	sb.WriteString(" SET ")
 	var args []any
-	for col, val := range us.m {
+	for _, col := range slices.Sorted(maps.Keys(us.m)) {
 		if len(args) != 0 {
 			sb.WriteByte(',')
 		}
 		sb.WriteString(col)
 		sb.WriteString("=$")
-		args = append(args, val)
+		args = append(args, us.m[col])
 		sb.WriteString(strconv.Itoa(len(args)))
 	}
 
