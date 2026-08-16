@@ -52,6 +52,12 @@ Both `Insert` and `Update` accept values individually with `Set`, or as a
 `pql.Map` with `Values`. Calls to either method are cumulative and may be mixed
 in any order; later values replace earlier values for the same column.
 
+## Execute statements
+
+`Query`, `QueryRow`, `Exec`, and `ExecRet` use the pool registered by `Init`
+when no connection is supplied. An explicitly supplied `Querier`, such as a
+`pgx.Tx` or another `*pgxpool.Pool`, takes precedence for that call.
+
 ## WHERE expressions
 
 Use operator methods for values:
