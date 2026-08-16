@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// UpdateStmt builds an UPDATE statement.
 type UpdateStmt struct {
 	table     string
 	m         Map
@@ -15,10 +16,12 @@ type UpdateStmt struct {
 	returning []string
 }
 
+// Update creates an UPDATE statement for table.
 func Update(table string) *UpdateStmt {
 	return &UpdateStmt{table: table, m: Map{}}
 }
 
+// Build returns SQL, positional arguments, and a validation error.
 func (us *UpdateStmt) Build() (string, []any, error) {
 	if strings.TrimSpace(us.table) == "" {
 		return "", nil, fmt.Errorf("pql: UPDATE table is required")
@@ -59,6 +62,7 @@ func (us *UpdateStmt) Build() (string, []any, error) {
 	return b.String(), args, nil
 }
 
+// Set assigns val to col.
 func (us *UpdateStmt) Set(col string, val any) *UpdateStmt {
 	if us.m == nil {
 		us.m = Map{}
@@ -67,6 +71,7 @@ func (us *UpdateStmt) Set(col string, val any) *UpdateStmt {
 	return us
 }
 
+// Values merges m into the statement's values.
 func (us *UpdateStmt) Values(m Map) *UpdateStmt {
 	if us.m == nil {
 		us.m = Map{}
@@ -75,18 +80,21 @@ func (us *UpdateStmt) Values(m Map) *UpdateStmt {
 	return us
 }
 
+// Where appends a condition and returns it for further chaining.
 func (us *UpdateStmt) Where(col string, args ...any) *WhereExpr {
 	w := &WhereExpr{stmt: us, col: col, exprArgs: args}
 	us.where = append(us.where, w)
 	return w
 }
 
+// WhereNot appends a negated condition and returns it for further chaining.
 func (us *UpdateStmt) WhereNot(col string, args ...any) *WhereExpr {
 	w := &WhereExpr{stmt: us, col: "NOT " + col, exprArgs: args}
 	us.where = append(us.where, w)
 	return w
 }
 
+// Apply appends w to the statement. A nil expression is ignored.
 func (us *UpdateStmt) Apply(w *WhereExpr) *UpdateStmt {
 	if w == nil {
 		return us
@@ -99,6 +107,7 @@ func (us *UpdateStmt) Apply(w *WhereExpr) *UpdateStmt {
 	return us
 }
 
+// Returning appends cols to the RETURNING clause.
 func (us *UpdateStmt) Returning(cols ...string) *UpdateStmt {
 	us.returning = append(us.returning, cols...)
 	return us
