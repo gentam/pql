@@ -137,6 +137,7 @@ NULLs last and descending order puts NULLs first.
 - empty WHERE conditions
 - mismatched raw-expression placeholders and arguments
 - invalid NULL ordering options
+- negative `Limit` or `Offset` values
 
 Always check the returned error before executing the SQL.
 

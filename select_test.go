@@ -28,6 +28,11 @@ func TestSelectBuild(t *testing.T) {
 			want: buildResult{query: "SELECT * FROM t ORDER BY a ASC NULLS FIRST,b ASC NULLS LAST,c DESC NULLS FIRST,d DESC NULLS LAST"},
 		},
 		{name: "limit and offset", stmt: Select().From("t").Limit(1).Offset(10), want: buildResult{query: "SELECT * FROM t LIMIT 1 OFFSET 10"}},
+		{name: "explicit zero limit", stmt: Select().From("t").Limit(0), want: buildResult{query: "SELECT * FROM t LIMIT 0"}},
+		{name: "explicit zero offset", stmt: Select().From("t").Offset(0), want: buildResult{query: "SELECT * FROM t OFFSET 0"}},
+		{name: "zero limit and offset", stmt: Select().From("t").Limit(0).Offset(0), want: buildResult{query: "SELECT * FROM t LIMIT 0 OFFSET 0"}},
+		{name: "negative limit", stmt: Select().From("t").Limit(-1), want: buildResult{err: "pql: LIMIT must not be negative"}},
+		{name: "negative offset", stmt: Select().From("t").Offset(-1), want: buildResult{err: "pql: OFFSET must not be negative"}},
 	}
 
 	for _, tt := range tests {

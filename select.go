@@ -1,6 +1,7 @@
 package pql
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -12,7 +13,8 @@ type SelectStmt struct {
 	where []*WhereExpr
 	order []Order
 
-	limit, offset int
+	limit, offset       int
+	limitSet, offsetSet bool
 }
 
 // Select creates a SELECT statement with cols.
@@ -60,11 +62,17 @@ func (ss *SelectStmt) Build() (string, []any, error) {
 		}
 	}
 
-	if ss.limit != 0 {
+	if ss.limitSet {
+		if ss.limit < 0 {
+			return "", nil, fmt.Errorf("pql: LIMIT must not be negative")
+		}
 		b.WriteString(" LIMIT ")
 		b.WriteString(strconv.Itoa(ss.limit))
 	}
-	if ss.offset != 0 {
+	if ss.offsetSet {
+		if ss.offset < 0 {
+			return "", nil, fmt.Errorf("pql: OFFSET must not be negative")
+		}
 		b.WriteString(" OFFSET ")
 		b.WriteString(strconv.Itoa(ss.offset))
 	}
@@ -143,13 +151,19 @@ func (ss *SelectStmt) SetOrders(orders ...Order) *SelectStmt {
 }
 
 // Limit sets the maximum number of rows returned.
+// A value of 0 is honored as LIMIT 0 and must be set explicitly;
+// negative values are rejected by Build.
 func (ss *SelectStmt) Limit(n int) *SelectStmt {
 	ss.limit = n
+	ss.limitSet = true
 	return ss
 }
 
 // Offset sets the number of rows skipped.
+// A value of 0 is honored as OFFSET 0 and must be set explicitly;
+// negative values are rejected by Build.
 func (ss *SelectStmt) Offset(n int) *SelectStmt {
 	ss.offset = n
+	ss.offsetSet = true
 	return ss
 }
