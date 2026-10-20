@@ -3,7 +3,8 @@
 // Use [Select], [Insert], [Update], or [Delete] to create a statement. Its Build
 // method returns SQL and positional arguments without connecting to a database.
 // Execution methods use a supplied [Querier] or the pool configured with
-// [Init]. Validation errors are reported by Build or execution methods.
+// [SetDefaultPool]. Validation errors are reported by Build or execution methods;
+// QueryRow reports errors through Scan.
 //
 // Table names, column names, and SQL expressions are inserted verbatim, without
 // quoting or escaping, and must be trusted. Trailing line comments are terminated

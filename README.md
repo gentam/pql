@@ -54,9 +54,56 @@ in any order; later values replace earlier values for the same column.
 
 ## Execute statements
 
-`Query`, `QueryRow`, `Exec`, and `ExecRet` use the pool registered by `Init`
-when no connection is supplied. An explicitly supplied `Querier`, such as a
-`pgx.Tx` or another `*pgxpool.Pool`, takes precedence for that call.
+Pass a connection, pool, or transaction implementing `pql.Querier` to execute a
+statement. To omit that argument, configure `pql.SetDefaultPool(pool)` at startup,
+before executing statements concurrently.
+
+| Method | Statements | Returns |
+| --- | --- | --- |
+| `Query` | Select, Insert, Update, Delete | `(pgx.Rows, error)` |
+| `QueryRow` | Select, Insert, Update, Delete | `pgx.Row` |
+| `Exec` | Insert, Update, Delete | `(pgconn.CommandTag, error)` |
+| `Exists` | Select | `(bool, error)` |
+
+Use `Returning` on writes to specify result columns. `QueryRow` reads the first
+row and reports all errors through `Scan`, including build errors and
+`pgx.ErrNoRows` when no row is returned:
+
+```go
+var id int64
+err := pql.Insert("users").Set("name", "Alice").Returning("id").
+	QueryRow(ctx, conn).Scan(&id)
+if err != nil {
+	return err
+}
+```
+
+Use `Query` for multiple rows. Close the rows and check `rows.Err()`, or use
+`pgx.CollectRows`, which handles both:
+
+```go
+rows, err := pql.Delete("sessions").Where("expires_at < now()").
+	Returning("id").Query(ctx, conn)
+if err != nil {
+	return err
+}
+ids, err := pgx.CollectRows(rows, pgx.RowTo[int64])
+if err != nil {
+	return err
+}
+```
+
+Use `Exec` when no result rows are needed; its command tag exposes `RowsAffected()`:
+
+```go
+tag, err := pql.Update("users").Set("active", true).Where("id=$", 7).Exec(ctx, conn)
+if err != nil {
+	return err
+}
+```
+
+`SelectStmt.Exists` tests whether the query returns any rows, preserving its
+LIMIT/OFFSET. Execution methods validate the statement before contacting the database.
 
 ## Compose conditions
 
