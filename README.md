@@ -6,10 +6,9 @@ fragments with bound values and returns SQL plus positional arguments for
 
 It was inspired by <https://github.com/jackc/pgsql>.
 
-## Requirements
+## Install
 
-- Go 1.26 or later
-- pgx v5
+Requires Go 1.26 or later and pgx v5.
 
 ```sh
 go get github.com/gentam/pql
@@ -17,11 +16,12 @@ go get github.com/gentam/pql
 
 ## Build a query
 
-Statements return SQL, arguments, and a build error.
+Use `Select`, `Insert`, `Update`, or `Delete` to create a statement. `Build`
+returns SQL, arguments, and a validation error without connecting to a database.
 
 ```go
 s := pql.Select("id", "name").From("users")
-s.Where("tenant_id=$", 42)
+s.Where("tenant_id = $", 42)
 s.Desc("created_at").Limit(10)
 
 query, args, err := s.Build()
@@ -29,30 +29,17 @@ if err != nil {
 	return err
 }
 
-// query: SELECT id,name FROM users WHERE (tenant_id=$1) ORDER BY created_at DESC LIMIT 10
+// query: SELECT id,name FROM users WHERE (tenant_id = $1) ORDER BY created_at DESC LIMIT 10
 // args:  []any{42}
 ```
 
-`Insert`, `Update`, and `Delete` use the same pattern.
+Write complete WHERE conditions in SQL with unnumbered `$` placeholders for
+values. They become `$1`, `$2`, etc.; quoted text and comments are preserved.
+PostgreSQL operators such as the JSONB `?` operator can be used directly.
 
-```go
-i := pql.Insert("users").Returning("id")
-i.Set("status", "ACTIVE")
-i.Set("tenant_id", 42)
-
-query, args, err := i.Build()
-if err != nil {
-	return err
-}
-// query: INSERT INTO users (status,tenant_id) VALUES ($1,$2) RETURNING id
-// args:  []any{"ACTIVE", 42}
-```
-
-INSERT and UPDATE also accept `Values(pql.Map{...})`; `pql.Map` is a shorter
-spelling for map literals. `Set` and `Values` merge assignments, with later values
-replacing earlier values for the same column. `SetValues(m)` copies and replaces
-all assignments. Passing nil or an empty map clears them; `Build` requires at
-least one assignment.
+Table names, column names, and SQL expressions must be trusted: they are not
+quoted or escaped. Only values supplied through WHERE placeholders, `Set`,
+`Values`, `SetValues`, or keyset helpers become bound parameters.
 
 ## Execute statements
 
@@ -98,20 +85,22 @@ if err != nil {
 Use `Exec` when no result rows are needed; its command tag exposes `RowsAffected()`:
 
 ```go
-tag, err := pql.Update("users").Set("active", true).Where("id=$", 7).Exec(ctx, conn)
+tag, err := pql.Update("users").Set("active", true).Where("id = $", 7).Exec(ctx, conn)
 if err != nil {
 	return err
 }
 ```
 
+INSERT and UPDATE also accept `Values(pql.Map{...})`; `pql.Map` is a shorter
+spelling for map literals. `Set` and `Values` merge assignments, with later values
+replacing earlier values for the same column. `SetValues(m)` copies and replaces
+all assignments. Passing nil or an empty map clears them; `Build` requires at
+least one assignment.
+
 `SelectStmt.Exists` tests whether the query returns any rows, preserving its
 LIMIT/OFFSET. Execution methods validate the statement before contacting the database.
 
 ## Compose conditions
-
-Write complete WHERE conditions in SQL with unnumbered `$` placeholders for
-values. They become `$1`, `$2`, etc.; quoted text and comments are preserved.
-PostgreSQL operators such as the JSONB `?` operator can be used directly.
 
 Statement `Where`, `WhereNot`, and `Apply` append conditions with AND.
 `Apply(exprs...)` accepts individual conditions or a slice; with no arguments
@@ -121,11 +110,11 @@ combine `pql.Where` expressions with `And`, `Or`, and `Not`:
 
 ```go
 filter := pql.And(
-	pql.Where("tenant_id=$", 42),
-	pql.Or(pql.Where("owner_id=$", 7), pql.Not(pql.Where("private"))),
+	pql.Where("tenant_id = $", 42),
+	pql.Or(pql.Where("owner_id = $", 7), pql.Not(pql.Where("private"))),
 )
 stmt := pql.Select("id").From("items").Apply(filter)
-// WHERE ((tenant_id=$1) AND ((owner_id=$2) OR (NOT (private))))
+// WHERE ((tenant_id = $1) AND ((owner_id = $2) OR (NOT (private))))
 ```
 
 `WhereExpr` values are immutable and reusable. The methods `expr.And(...)`,
@@ -142,7 +131,7 @@ use `IS NULL` when testing for NULL.
 All four statement types are mutable. Use `Clone` to derive independent queries:
 
 ```go
-base := pql.Select("id", "title").From("items").Where("status=$", "OPEN")
+base := pql.Select("id", "title").From("items").Where("status = $", "OPEN")
 list := base.Clone().Desc("id").Limit(20)
 count := base.Clone().SetColumns("count(*)")
 ```
@@ -187,26 +176,13 @@ These helpers create conditions without changing the statement's ordering or lim
 The runnable [pagination example](examples/pagination/README.md) covers first,
 next, and previous pages, reversed ordering, and date/NULL cursor handling.
 
-## Errors
+## API reference and examples
 
-`Build` validates structural errors such as:
+For complete method contracts, validation rules, and placeholder syntax, run
+`go doc -all github.com/gentam/pql`. Runnable examples are in
+[example_test.go](./example_test.go).
 
-- missing tables for `Insert`, `Update`, and `Delete`
-- missing values for `Insert` and `Update`
-- empty or whitespace-only column, WHERE, RETURNING, and ORDER BY expressions
-- non-empty, whitespace-only FROM expressions
-- mismatched placeholders and arguments, numbered placeholders, and unclosed SQL text
-- invalid NULL ordering options
-- negative `Limit` or `Offset` values
+## Tests
 
-Always check the returned error before executing the SQL.
-
-## SQL safety
-
-Table names, column names, and raw SQL expressions are written into SQL as
-provided. They are not quoted or escaped. Only values passed through WHERE
-placeholders, `Set`, `Values`, `SetValues`, or keyset helpers become pgx arguments.
-
-Do not place untrusted input in identifiers or raw SQL fragments.
-
-Runnable examples are available in [example_test.go](./example_test.go).
+Run `go test ./...` for unit tests and examples. Set `PQL_TEST_DATABASE_URL` to a
+PostgreSQL connection string to also run integration tests, which use temporary tables.
