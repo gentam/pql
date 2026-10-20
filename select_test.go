@@ -1,8 +1,11 @@
 package pql
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestSelectBuild(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		stmt *SelectStmt
@@ -11,8 +14,16 @@ func TestSelectBuild(t *testing.T) {
 		{name: "default columns", stmt: Select(), want: buildResult{query: "SELECT *"}},
 		{name: "empty columns", stmt: Select([]string{}...), want: buildResult{query: "SELECT *"}},
 		{name: "columns", stmt: Select("a", "1", "now()"), want: buildResult{query: "SELECT a,1,now()"}},
+		{name: "whitespace in quoted result expressions", stmt: Select("''", " ' ' ", `" "`), want: buildResult{query: `SELECT '', ' ' ," "`}},
+		{name: "empty appended columns", stmt: Select("a").Select().Select([]string{}...), want: buildResult{query: "SELECT a"}},
 		{name: "from and chained select", stmt: Select("a").From("t").Select("b"), want: buildResult{query: "SELECT a,b FROM t"}},
+		{name: "empty from", stmt: Select("1").From(""), want: buildResult{query: "SELECT 1"}},
+		{name: "clear from", stmt: Select("1").From("t").From(""), want: buildResult{query: "SELECT 1"}},
+		{name: "whitespace-only from", stmt: Select("1").From(" \t\n "), want: buildResult{err: "pql: FROM expression is required"}},
+		{name: "unicode whitespace-only from", stmt: Select("1").From("\u3000"), want: buildResult{err: "pql: FROM expression is required"}},
+		{name: "preserve from whitespace", stmt: Select("1").From(" users "), want: buildResult{query: "SELECT 1 FROM  users "}},
 		{name: "ascending order", stmt: Select().From("t").Asc("c"), want: buildResult{query: "SELECT * FROM t ORDER BY c ASC"}},
+		{name: "order expression", stmt: Select().From("t").Order(" COALESCE(a, b) ", true), want: buildResult{query: "SELECT * FROM t ORDER BY  COALESCE(a, b)  DESC"}},
 		{
 			name: "mixed order helpers",
 			stmt: Select().From("t").Desc("a").Asc("b").Order("c", true).Order("d", false),
@@ -50,6 +61,7 @@ func TestSelectOffsetValue(t *testing.T) {
 }
 
 func TestSelectWhere(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name  string
 		build func() *SelectStmt
@@ -71,48 +83,38 @@ func TestSelectWhere(t *testing.T) {
 				s.WhereNot("true")
 				return s
 			},
-			want: buildResult{query: "SELECT * FROM t WHERE (NOT true)"},
-		},
-		{
-			name: "conditional clauses",
-			build: func() *SelectStmt {
-				s := Select().From("t")
-				s.WhereCond(true, "c1=?", 1)
-				s.WhereCond(false, "c2")
-				return s
-			},
-			want: buildResult{query: "SELECT * FROM t WHERE (c1=$1) AND (NOT c2)", args: []any{1}},
+			want: buildResult{query: "SELECT * FROM t WHERE (NOT (true))"},
 		},
 		{
 			name: "multiple raw placeholders",
 			build: func() *SelectStmt {
 				s := Select().From("t1")
-				s.WhereNot("c1 in (?,?,?)", 1, 2, 3)
-				s.Where("c2 = any (select id from t2 where c <> ?)", "4")
+				s.WhereNot("c1 in ($,$,$)", 1, 2, 3).
+					Where("c2 = any (select id from t2 where c <> $)", "4")
 				return s
 			},
 			want: buildResult{
-				query: "SELECT * FROM t1 WHERE (NOT c1 in ($1,$2,$3)) AND (c2 = any (select id from t2 where c <> $4))",
+				query: "SELECT * FROM t1 WHERE (NOT (c1 in ($1,$2,$3))) AND (c2 = any (select id from t2 where c <> $4))",
 				args:  []any{1, 2, 3, "4"},
 			},
 		},
 		{
-			name: "applied detached clause",
+			name: "applied condition",
 			build: func() *SelectStmt {
-				return Select().From("t").Apply(Where("c1").Eq(1).Or("c2").Eq(2))
+				return Select().From("t").Apply(Or(Where("c1=$", 1), Where("c2=$", 2)))
 			},
-			want: buildResult{query: "SELECT * FROM t WHERE (c1=$1 OR (c2=$2))", args: []any{1, 2}},
+			want: buildResult{query: "SELECT * FROM t WHERE ((c1=$1) OR (c2=$2))", args: []any{1, 2}},
 		},
 		{
-			name:  "nil applied clause",
-			build: func() *SelectStmt { return Select().From("t").Apply(nil) },
-			want:  buildResult{query: "SELECT * FROM t"},
+			name:  "zero applied clause",
+			build: func() *SelectStmt { return Select().From("t").Apply(WhereExpr{}) },
+			want:  buildResult{err: "pql: WHERE condition is required"},
 		},
 		{
 			name: "postfix operator on expression with placeholders",
 			build: func() *SelectStmt {
 				s := Select().From("t")
-				s.Where("(select 1 from t2 where c1>? and c2<?)", 1, 2).IsNull()
+				s.Where("(select 1 from t2 where c1>$ and c2<$) IS NULL", 1, 2)
 				return s
 			},
 			want: buildResult{
@@ -124,7 +126,7 @@ func TestSelectWhere(t *testing.T) {
 			name: "binary operator on expression with placeholders",
 			build: func() *SelectStmt {
 				s := Select().From("t")
-				s.Where("coalesce(?,?)", 1, 2).Eq(3)
+				s.Where("coalesce($,$)=$", 1, 2, 3)
 				return s
 			},
 			want: buildResult{
@@ -136,7 +138,35 @@ func TestSelectWhere(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assertBuild(t, tt.build(), tt.want)
+			stmt := tt.build()
+			assertBuild(t, stmt, tt.want)
 		})
 	}
+}
+
+func TestSelectSetWhere(t *testing.T) {
+	t.Parallel()
+	stmt := Select("id").From("t").Desc("id").Limit(5).Where("old=$", 99)
+	exprs := []WhereExpr{Or(Where("a=$", 1), Where("b=$", 2)), Where("c=$", 3)}
+	if stmt.SetWhere(exprs...) != stmt {
+		t.Fatal("SetWhere must return its receiver")
+	}
+	exprs[0] = Where("changed")
+	stmt.Apply(Where("d=$", 4)).Where("enabled").WhereNot("hidden")
+	want := buildResult{
+		query: "SELECT id FROM t WHERE ((a=$1) OR (b=$2)) AND (c=$3) AND (d=$4) AND (enabled) AND (NOT (hidden)) ORDER BY id DESC LIMIT 5",
+		args:  []any{1, 2, 3, 4},
+	}
+	assertBuild(t, stmt, want)
+
+	cleared := buildResult{query: "SELECT id FROM t ORDER BY id DESC LIMIT 5", args: nil}
+	assertBuild(t, stmt.SetWhere(), cleared)
+	assertBuild(t, stmt.Where("old").SetWhere([]WhereExpr(nil)...), cleared)
+	assertBuild(t, stmt.Where("old").SetWhere([]WhereExpr{}...), cleared)
+	assertBuild(t, stmt.SetWhere(Where("fresh=$", 5)), buildResult{query: "SELECT id FROM t WHERE (fresh=$1) ORDER BY id DESC LIMIT 5", args: []any{5}})
+	for _, exprs := range [][]WhereExpr{{{}}, {Where("valid"), {}}} {
+		assertBuild(t, stmt.SetWhere(exprs...), buildResult{err: "pql: WHERE condition is required"})
+	}
+	assertBuild(t, stmt.SetWhere(Where("")), buildResult{err: "pql: WHERE condition is required"})
+	assertBuild(t, stmt.SetWhere(), cleared)
 }

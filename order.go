@@ -1,6 +1,7 @@
 package pql
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -72,30 +73,42 @@ func (o Order) Reversed() Order {
 func buildOrder(b *strings.Builder, orders []Order) error {
 	b.WriteString(" ORDER BY ")
 	for i, order := range orders {
+		if err := order.validate(); err != nil {
+			return err
+		}
 		if i != 0 {
 			b.WriteByte(',')
 		}
-		b.WriteString(order.col)
+		b.WriteString(terminateLineComment(order.col))
 		if order.desc {
 			b.WriteString(" DESC")
 		} else {
 			b.WriteString(" ASC")
 		}
 
-		switch len(order.nulls) {
-		case 0:
-		case 1:
-			switch order.nulls[0] {
-			case NullsFirst:
+		if len(order.nulls) == 1 {
+			if order.nulls[0] == NullsFirst {
 				b.WriteString(" NULLS FIRST")
-			case NullsLast:
+			} else {
 				b.WriteString(" NULLS LAST")
-			default:
-				return fmt.Errorf("pql: invalid NULLS order %d", order.nulls[0])
 			}
-		default:
-			return fmt.Errorf("pql: ORDER BY accepts at most 1 NULLS option, got %d", len(order.nulls))
 		}
+	}
+	return nil
+}
+
+func (o Order) validate() error {
+	if strings.TrimSpace(o.col) == "" {
+		return errors.New("pql: ORDER BY expression is required")
+	}
+	switch len(o.nulls) {
+	case 0:
+	case 1:
+		if o.nulls[0] != NullsFirst && o.nulls[0] != NullsLast {
+			return fmt.Errorf("pql: invalid NULLS order %d", o.nulls[0])
+		}
+	default:
+		return fmt.Errorf("pql: ORDER BY accepts at most 1 NULLS option, got %d", len(o.nulls))
 	}
 	return nil
 }

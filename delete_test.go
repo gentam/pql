@@ -3,6 +3,7 @@ package pql
 import "testing"
 
 func TestDeleteBuild(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name  string
 		build func() *DeleteStmt
@@ -13,39 +14,65 @@ func TestDeleteBuild(t *testing.T) {
 			name: "where and returning",
 			build: func() *DeleteStmt {
 				s := Delete("t")
-				s.Where("c1").Eq(1)
-				s.WhereNot("c2").IsNotNull()
-				return s.Returning("c1")
+				s.Where("c1=$", 1)
+				return s.WhereNot("c2 IS NOT NULL").Returning("c1")
 			},
 			want: buildResult{
-				query: "DELETE FROM t WHERE (c1=$1) AND (NOT c2 IS NOT NULL) RETURNING c1",
+				query: "DELETE FROM t WHERE (c1=$1) AND (NOT (c2 IS NOT NULL)) RETURNING c1",
 				args:  []any{1},
 			},
 		},
 		{
 			name: "applied and nested clauses",
 			build: func() *DeleteStmt {
-				w := Where("c0<=now()").Or("c0").IsNull()
+				w := Or(Where("c0<=now()"), Where("c0 IS NULL"), Where("c2=$", 2))
 				s := Delete("t").Apply(w)
-				s.WhereNot("c1").Eq(1)
-				w.Or("c2").Eq(2)
+				s.WhereNot("c1=$", 1)
 				return s
 			},
 			want: buildResult{
-				query: "DELETE FROM t WHERE (c0<=now() OR (c0 IS NULL OR (c2=$1))) AND (NOT c1=$2)",
+				query: "DELETE FROM t WHERE ((c0<=now()) OR (c0 IS NULL) OR (c2=$1)) AND (NOT (c1=$2))",
 				args:  []any{2, 1},
 			},
 		},
 		{
-			name:  "nil applied clause",
-			build: func() *DeleteStmt { return Delete("t").Apply(nil) },
-			want:  buildResult{query: "DELETE FROM t"},
+			name:  "zero applied clause",
+			build: func() *DeleteStmt { return Delete("t").Apply(WhereExpr{}) },
+			want:  buildResult{err: "pql: WHERE condition is required"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assertBuild(t, tt.build(), tt.want)
+			stmt := tt.build()
+			assertBuild(t, stmt, tt.want)
 		})
 	}
+}
+
+func TestDeleteSetWhere(t *testing.T) {
+	t.Parallel()
+	stmt := Delete("t").Returning("id").Where("old=$", 99)
+	exprs := []WhereExpr{Or(Where("a=$", 1), Where("b=$", 2)), Where("c=$", 3)}
+	if stmt.SetWhere(exprs...) != stmt {
+		t.Fatal("SetWhere must return its receiver")
+	}
+	exprs[0] = Where("changed")
+	stmt.Apply(Where("d=$", 4)).Where("enabled").WhereNot("hidden")
+	want := buildResult{
+		query: "DELETE FROM t WHERE ((a=$1) OR (b=$2)) AND (c=$3) AND (d=$4) AND (enabled) AND (NOT (hidden)) RETURNING id",
+		args:  []any{1, 2, 3, 4},
+	}
+	assertBuild(t, stmt, want)
+
+	cleared := buildResult{query: "DELETE FROM t RETURNING id", args: nil}
+	assertBuild(t, stmt.SetWhere(), cleared)
+	assertBuild(t, stmt.Where("old").SetWhere([]WhereExpr(nil)...), cleared)
+	assertBuild(t, stmt.Where("old").SetWhere([]WhereExpr{}...), cleared)
+	assertBuild(t, stmt.SetWhere(Where("fresh=$", 5)), buildResult{query: "DELETE FROM t WHERE (fresh=$1) RETURNING id", args: []any{5}})
+	for _, exprs := range [][]WhereExpr{{{}}, {Where("valid"), {}}} {
+		assertBuild(t, stmt.SetWhere(exprs...), buildResult{err: "pql: WHERE condition is required"})
+	}
+	assertBuild(t, stmt.SetWhere(Where("")), buildResult{err: "pql: WHERE condition is required"})
+	assertBuild(t, stmt.SetWhere(), cleared)
 }

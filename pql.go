@@ -1,4 +1,3 @@
-// Package pql helps build PostgreSQL queries.
 package pql
 
 import (
@@ -15,6 +14,12 @@ import (
 
 // Map associates column expressions with values.
 type Map map[string]any
+
+// Builder builds SQL and its positional arguments.
+type Builder interface {
+	// Build returns SQL, positional arguments, and a validation error.
+	Build() (string, []any, error)
+}
 
 // Querier executes PostgreSQL statements and queries.
 // It is satisfied by *[pgxpool.Pool], *[pgxpool.Conn], *[pgx.Conn],
@@ -37,8 +42,8 @@ func Init(p *pgxpool.Pool) {
 
 // Query executes the SELECT statement and returns its rows.
 // An optional conn overrides the initialized pool.
-func (ss *SelectStmt) Query(ctx context.Context, conn ...Querier) (pgx.Rows, error) {
-	query, args, err := ss.Build()
+func (s *SelectStmt) Query(ctx context.Context, conn ...Querier) (pgx.Rows, error) {
+	query, args, err := s.Build()
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +56,8 @@ func (ss *SelectStmt) Query(ctx context.Context, conn ...Querier) (pgx.Rows, err
 
 // QueryRow executes the SELECT statement and returns one row.
 // An optional conn overrides the initialized pool.
-func (ss *SelectStmt) QueryRow(ctx context.Context, conn ...Querier) (pgx.Row, error) {
-	query, args, err := ss.Build()
+func (s *SelectStmt) QueryRow(ctx context.Context, conn ...Querier) (pgx.Row, error) {
+	query, args, err := s.Build()
 	if err != nil {
 		return nil, err
 	}
@@ -65,8 +70,8 @@ func (ss *SelectStmt) QueryRow(ctx context.Context, conn ...Querier) (pgx.Row, e
 
 // Exec executes the UPDATE statement.
 // An optional conn overrides the initialized pool.
-func (us *UpdateStmt) Exec(ctx context.Context, conn ...Querier) error {
-	query, args, err := us.Build()
+func (s *UpdateStmt) Exec(ctx context.Context, conn ...Querier) error {
+	query, args, err := s.Build()
 	if err != nil {
 		return err
 	}
@@ -80,8 +85,8 @@ func (us *UpdateStmt) Exec(ctx context.Context, conn ...Querier) error {
 
 // ExecRet executes the UPDATE statement and returns one row.
 // An optional conn overrides the initialized pool.
-func (us *UpdateStmt) ExecRet(ctx context.Context, conn ...Querier) (pgx.Row, error) {
-	query, args, err := us.Build()
+func (s *UpdateStmt) ExecRet(ctx context.Context, conn ...Querier) (pgx.Row, error) {
+	query, args, err := s.Build()
 	if err != nil {
 		return nil, err
 	}
@@ -94,8 +99,8 @@ func (us *UpdateStmt) ExecRet(ctx context.Context, conn ...Querier) (pgx.Row, er
 
 // Exec executes the DELETE statement.
 // An optional conn overrides the initialized pool.
-func (ds *DeleteStmt) Exec(ctx context.Context, conn ...Querier) error {
-	query, args, err := ds.Build()
+func (s *DeleteStmt) Exec(ctx context.Context, conn ...Querier) error {
+	query, args, err := s.Build()
 	if err != nil {
 		return err
 	}
@@ -109,8 +114,8 @@ func (ds *DeleteStmt) Exec(ctx context.Context, conn ...Querier) error {
 
 // ExecRet executes the DELETE statement and returns one row.
 // An optional conn overrides the initialized pool.
-func (ds *DeleteStmt) ExecRet(ctx context.Context, conn ...Querier) (pgx.Row, error) {
-	query, args, err := ds.Build()
+func (s *DeleteStmt) ExecRet(ctx context.Context, conn ...Querier) (pgx.Row, error) {
+	query, args, err := s.Build()
 	if err != nil {
 		return nil, err
 	}
@@ -123,8 +128,8 @@ func (ds *DeleteStmt) ExecRet(ctx context.Context, conn ...Querier) (pgx.Row, er
 
 // Exec executes the INSERT statement.
 // An optional conn overrides the initialized pool.
-func (is *InsertStmt) Exec(ctx context.Context, conn ...Querier) error {
-	query, args, err := is.Build()
+func (s *InsertStmt) Exec(ctx context.Context, conn ...Querier) error {
+	query, args, err := s.Build()
 	if err != nil {
 		return err
 	}
@@ -138,8 +143,8 @@ func (is *InsertStmt) Exec(ctx context.Context, conn ...Querier) error {
 
 // ExecRet executes the INSERT statement and returns one row.
 // An optional conn overrides the initialized pool.
-func (is *InsertStmt) ExecRet(ctx context.Context, conn ...Querier) (pgx.Row, error) {
-	query, args, err := is.Build()
+func (s *InsertStmt) ExecRet(ctx context.Context, conn ...Querier) (pgx.Row, error) {
+	query, args, err := s.Build()
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +184,20 @@ func isNilQuerier(q Querier) bool {
 	return v.Kind() == reflect.Pointer && v.IsNil()
 }
 
-func buildReturning(b *strings.Builder, returning []string) {
+func buildReturning(b *strings.Builder, returning []string) error {
 	b.WriteString(" RETURNING ")
-	b.WriteString(strings.Join(returning, ","))
+	return writeSQLList(b, returning, "RETURNING expression")
+}
+
+func writeSQLList(b *strings.Builder, exprs []string, kind string) error {
+	for i, expr := range exprs {
+		if strings.TrimSpace(expr) == "" {
+			return fmt.Errorf("pql: %s is required", kind)
+		}
+		if i != 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(terminateLineComment(expr))
+	}
+	return nil
 }

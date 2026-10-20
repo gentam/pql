@@ -21,7 +21,7 @@ Statements return SQL, arguments, and a build error.
 
 ```go
 s := pql.Select("id", "name").From("users")
-s.Where("tenant_id").Eq(42)
+s.Where("tenant_id=$", 42)
 s.Desc("created_at").Limit(10)
 
 query, args, err := s.Build()
@@ -58,55 +58,35 @@ in any order; later values replace earlier values for the same column.
 when no connection is supplied. An explicitly supplied `Querier`, such as a
 `pgx.Tx` or another `*pgxpool.Pool`, takes precedence for that call.
 
-## WHERE expressions
+## Compose conditions
 
-Use operator methods for values:
+Write complete WHERE conditions in SQL with unnumbered `$` placeholders for
+values. They become `$1`, `$2`, etc.; quoted text and comments are preserved.
+PostgreSQL operators such as the JSONB `?` operator can be used directly.
 
-```go
-w := pql.Where("tenant_id").Eq(42).
-	And("role in (?,?)", "ADMIN", "MANAGER")
-
-query, args, err := pql.Select("count(*)").From("users").
-	Apply(w).
-	Build()
-if err != nil {
-	return err
-}
-
-// query: SELECT count(*) FROM users WHERE (tenant_id=$1 AND (role in ($2,$3)))
-// args:  []any{42, "ADMIN", "MANAGER"}
-```
-
-`And` and `Or` group the remaining expression on their right. For example,
-`pql.Where("a").And("b").Or("c")` builds the equivalent of
-`a AND (b OR c)`.
-
-`Apply` accepts a detached `WhereExpr`, allowing the expression to be applied
-to `Select`, `Update`, or `Delete` statements. Passing `nil` is a no-op.
-`WhereNot` prefixes an expression with `NOT`.
-
-Available operators include:
-
-| Method | SQL |
-| --- | --- |
-| `Eq`, `Neq` | `=`, `<>` |
-| `Lt`, `Gt`, `Le`, `Ge` | `<`, `>`, `<=`, `>=` |
-| `Like`, `Ilike` | `LIKE`, `ILIKE` |
-| `Contains`, `ContainedBy` | `@>`, `<@` |
-| `IsNull`, `IsNotNull` | `IS NULL`, `IS NOT NULL` |
-| `And`, `Or` | boolean grouping |
-
-Raw expressions may contain `?` placeholders. They are replaced with
-PostgreSQL positional placeholders and appended to the statement arguments.
+Statement `Where`, `WhereNot`, and `Apply` append conditions with AND.
+`Apply(exprs...)` accepts individual conditions or a slice; with no arguments
+it leaves the WHERE clause unchanged.
+`WhereNot` negates the entire supplied SQL condition. For reusable conditions,
+combine `pql.Where` expressions with `And`, `Or`, and `Not`:
 
 ```go
-s.Where("created_at BETWEEN ? AND ?", from, to)
+filter := pql.And(
+	pql.Where("tenant_id=$", 42),
+	pql.Or(pql.Where("owner_id=$", 7), pql.Not(pql.Where("private"))),
+)
+stmt := pql.Select("id").From("items").Apply(filter)
+// WHERE ((tenant_id=$1) AND ((owner_id=$2) OR (NOT (private))))
 ```
 
-When arguments are supplied, every `?` in the expression is treated as a
-placeholder. With no arguments, the expression is left unchanged, so a trusted
-PostgreSQL JSONB expression such as `event_payload ? 'request_id'` can be used
-directly.
+`WhereExpr` values are immutable and reusable. The methods `expr.And(...)`,
+`expr.Or(...)`, and `expr.Not()` return new expressions; retain their results.
+Finish composing a condition before applying it. `SetWhere(exprs...)` replaces
+all conditions, and `SetWhere()` removes the WHERE clause.
+
+Empty SQL and zero-valued `WhereExpr` inputs are build errors. For optional
+filters, branch before adding them. A nil bound value represents SQL NULL;
+use `IS NULL` when testing for NULL.
 
 ## Ordering
 
@@ -134,8 +114,9 @@ NULLs last and descending order puts NULLs first.
 
 - missing tables for `Insert`, `Update`, and `Delete`
 - missing values for `Insert` and `Update`
-- empty WHERE conditions
-- mismatched raw-expression placeholders and arguments
+- empty or whitespace-only column, WHERE, RETURNING, and ORDER BY expressions
+- non-empty, whitespace-only FROM expressions
+- mismatched placeholders and arguments, numbered placeholders, and unclosed SQL text
 - invalid NULL ordering options
 - negative `Limit` or `Offset` values
 
@@ -144,9 +125,8 @@ Always check the returned error before executing the SQL.
 ## SQL safety
 
 Table names, column names, and raw SQL expressions are written into SQL as
-provided. They are not quoted or escaped. Only values passed through operator
-methods, `Set`, `Values`, or raw-expression `?` placeholders become pgx
-arguments.
+provided. They are not quoted or escaped. Only values passed through WHERE
+placeholders, `Set`, or `Values` become pgx arguments.
 
 Do not place untrusted input in identifiers or raw SQL fragments.
 

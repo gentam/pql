@@ -1,7 +1,7 @@
 package pql
 
 import (
-	"fmt"
+	"errors"
 	"maps"
 	"slices"
 	"strconv"
@@ -21,61 +21,73 @@ func Insert(table string) *InsertStmt {
 }
 
 // Build returns SQL, positional arguments, and a validation error.
-func (is *InsertStmt) Build() (string, []any, error) {
-	if strings.TrimSpace(is.table) == "" {
-		return "", nil, fmt.Errorf("pql: INSERT table is required")
+// The table must not be empty or whitespace-only, and at least one column
+// assignment is required.
+func (s *InsertStmt) Build() (string, []any, error) {
+	if strings.TrimSpace(s.table) == "" {
+		return "", nil, errors.New("pql: INSERT table is required")
 	}
-	if len(is.m) == 0 {
-		return "", nil, fmt.Errorf("pql: INSERT values are required")
+	if len(s.m) == 0 {
+		return "", nil, errors.New("pql: INSERT values are required")
 	}
 
 	b := &strings.Builder{}
 	b.WriteString("INSERT INTO ")
-	b.WriteString(is.table)
+	b.WriteString(terminateLineComment(s.table))
 
-	l := len(is.m)
-	cols := slices.Sorted(maps.Keys(is.m))
-	args := make([]any, l)
+	n := len(s.m)
+	cols := slices.Sorted(maps.Keys(s.m))
+	args := make([]any, n)
 	for i, col := range cols {
-		args[i] = is.m[col]
+		args[i] = s.m[col]
 	}
 
 	b.WriteString(" (")
-	b.WriteString(strings.Join(cols, ","))
+	if err := writeSQLList(b, cols, "INSERT column"); err != nil {
+		return "", nil, err
+	}
 	b.WriteString(") VALUES ($1")
-	for i := 2; i <= l; i++ {
+	for i := 2; i <= n; i++ {
 		b.WriteString(",$")
 		b.WriteString(strconv.Itoa(i))
 	}
 	b.WriteByte(')')
 
-	if is.returning != nil {
-		buildReturning(b, is.returning)
+	if len(s.returning) != 0 {
+		if err := buildReturning(b, s.returning); err != nil {
+			return "", nil, err
+		}
 	}
 
 	return b.String(), args, nil
 }
 
 // Set assigns val to col.
-func (is *InsertStmt) Set(col string, val any) *InsertStmt {
-	if is.m == nil {
-		is.m = Map{}
+// Empty or whitespace-only column names are rejected by [InsertStmt.Build].
+func (s *InsertStmt) Set(col string, val any) *InsertStmt {
+	if s.m == nil {
+		s.m = Map{}
 	}
-	is.m[col] = val
-	return is
+	s.m[col] = val
+	return s
 }
 
 // Values merges m into the statement's values.
-func (is *InsertStmt) Values(m Map) *InsertStmt {
-	if is.m == nil {
-		is.m = Map{}
+// Entries are copied, replacing earlier values for the same columns;
+// bound values are not deep-copied.
+// Empty or whitespace-only column names are rejected by [InsertStmt.Build].
+func (s *InsertStmt) Values(m Map) *InsertStmt {
+	if s.m == nil {
+		s.m = Map{}
 	}
-	maps.Copy(is.m, m)
-	return is
+	maps.Copy(s.m, m)
+	return s
 }
 
 // Returning appends cols to the RETURNING clause.
-func (is *InsertStmt) Returning(cols ...string) *InsertStmt {
-	is.returning = append(is.returning, cols...)
-	return is
+// The column slice is copied. Calling it without arguments leaves the clause unchanged.
+// Empty or whitespace-only expressions are rejected by [InsertStmt.Build].
+func (s *InsertStmt) Returning(cols ...string) *InsertStmt {
+	s.returning = append(s.returning, cols...)
+	return s
 }

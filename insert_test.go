@@ -3,6 +3,7 @@ package pql
 import "testing"
 
 func TestInsertBuild(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		stmt *InsertStmt
@@ -47,6 +48,7 @@ func TestInsertBuild(t *testing.T) {
 }
 
 func TestInsertValuesClone(t *testing.T) {
+	t.Parallel()
 	values := Map{"c": 1}
 	stmt := Insert("t").Values(values)
 

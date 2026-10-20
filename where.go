@@ -1,199 +1,154 @@
 package pql
 
 import (
-	"fmt"
-	"strconv"
+	"errors"
+	"slices"
 	"strings"
 )
 
-// WhereExpr represents a chain of WHERE conditions.
+// WhereExpr is an immutable value representing a complete WHERE condition.
+// Values can be copied and reused without cloning; internal data is shared.
+// Create conditions with [Where] or [WhereNot], and combine them with
+// [And], [Or], and [Not], or their method equivalents. Composition never changes
+// its inputs; use the returned expression to retain the result.
+// Build and execute SQL through a statement that uses the expression.
+// Bound values such as slices, maps, and pointers are not deep-copied and must
+// not be modified during concurrent builds. The zero value is invalid.
 type WhereExpr struct {
-	stmt     Builder
-	col      string
-	exprArgs []any
-	op       string
-	opArg    any
-	hasOpArg bool
-
-	and  *WhereExpr
-	or   *WhereExpr
-	root *WhereExpr
+	expr     string
+	args     []any
+	logical  string
+	children []WhereExpr
 }
 
-// Builder builds SQL and its positional arguments.
-type Builder interface {
-	// Build returns SQL, positional arguments, and a validation error.
-	Build() (string, []any, error)
+// Where creates a complete WHERE condition from trusted SQL and bound arguments.
+// Write comparisons and other operators directly in SQL using unnumbered $
+// placeholders:
+//
+//	Where("id = $", id)
+//	Where("created_at BETWEEN $ AND $", from, to)
+//	Where("deleted_at IS NULL")
+//	Where("payload ? $", "request_id")
+//
+// Empty or whitespace-only conditions are rejected when the statement is built.
+//
+// $ placeholders outside 'strings', identifiers ("price$" or price$usd),
+// comments (-- ... or /* ... */), and $tag$dollar-quoted text$tag$
+// are numbered in statement order. The number of placeholders must match
+// len(args), including when no arguments are supplied. Numbered or named
+// placeholders such as $1 or $name, unterminated quoted text or block comments,
+// and argument-count mismatches are reported when the statement is built.
+// A trailing line comment is terminated with a newline.
+//
+// String handling assumes PostgreSQL's default standard_conforming_strings=on.
+// Use E'...' strings for backslash escapes. Unquoted identifiers may contain $;
+// for example, price$usd is an identifier, while price=$ contains a placeholder.
+//
+// The argument list is copied; bound values are not deep-copied.
+func Where(expr string, args ...any) WhereExpr {
+	return WhereExpr{expr: expr, args: slices.Clone(args)}
 }
 
-// Where creates a detached WHERE expression.
-func Where(col string, args ...any) *WhereExpr {
-	wc := &WhereExpr{col: col, exprArgs: args}
-	wc.root = wc
-	return wc
+// WhereNot creates the negation of a complete SQL condition, equivalent to
+// Not(Where(expr, args...)). The entire supplied expression is negated.
+// See [Where] for expression syntax and argument handling.
+func WhereNot(expr string, args ...any) WhereExpr {
+	return Not(Where(expr, args...))
 }
 
-func buildWhere(ws []*WhereExpr, b *strings.Builder, args []any) ([]any, error) {
-	b.WriteString(" WHERE (")
+// And creates the conjunction of exprs, grouping each input as a whole.
+// It copies the input slice without changing any input expression.
+// With no inputs it represents TRUE. A zero-valued input is rejected at Build time.
+// Bound values are not deep-copied.
+func And(exprs ...WhereExpr) WhereExpr {
+	return WhereExpr{logical: "AND", children: slices.Clone(exprs)}
+}
+
+// Or creates the disjunction of exprs, grouping each input as a whole.
+// It copies the input slice without changing any input expression.
+// With no inputs it represents FALSE. A zero-valued input is rejected at Build time.
+// Bound values are not deep-copied.
+func Or(exprs ...WhereExpr) WhereExpr {
+	return WhereExpr{logical: "OR", children: slices.Clone(exprs)}
+}
+
+// Not negates expr as a whole without changing it.
+// A zero-valued input is rejected at Build time. SQL NULL retains its three-valued
+// logic: NOT NULL is NULL. Bound values are not deep-copied.
+func Not(expr WhereExpr) WhereExpr {
+	return WhereExpr{logical: "NOT", children: []WhereExpr{expr}}
+}
+
+// And returns a new conjunction of w and exprs, delegating to [And] with w first.
+// The receiver and inputs are unchanged; use the returned expression.
+// With no arguments the result is logically equivalent to w. A zero-valued receiver
+// or input is rejected at Build time. See [And] for argument ownership.
+func (w WhereExpr) And(exprs ...WhereExpr) WhereExpr {
+	return And(append([]WhereExpr{w}, exprs...)...)
+}
+
+// Or returns a new disjunction of w and exprs, delegating to [Or] with w first.
+// The receiver and inputs are unchanged; use the returned expression.
+// With no arguments the result is logically equivalent to w. A zero-valued receiver
+// or input is rejected at Build time. See [Or] for argument ownership.
+// Chaining operates on the whole result: a.And(b).Or(c) means (a AND b) OR c.
+func (w WhereExpr) Or(exprs ...WhereExpr) WhereExpr {
+	return Or(append([]WhereExpr{w}, exprs...)...)
+}
+
+// Not returns a new negation of w as a whole, equivalent to Not(w).
+// The receiver is unchanged; use the returned expression.
+// A zero-valued receiver is rejected at Build time. See [Not] for SQL NULL handling.
+func (w WhereExpr) Not() WhereExpr {
+	return Not(w)
+}
+
+func buildWhere(ws []WhereExpr, b *strings.Builder, args []any) ([]any, error) {
+	b.WriteString(" WHERE ")
+	return buildConditions(ws, "AND", b, args)
+}
+
+func buildConditions(ws []WhereExpr, op string, b *strings.Builder, args []any) ([]any, error) {
 	for i, w := range ws {
 		if i != 0 {
-			b.WriteString(") AND (")
+			b.WriteByte(' ')
+			b.WriteString(op)
+			b.WriteByte(' ')
 		}
+		b.WriteByte('(')
 		var err error
 		args, err = w.build(b, args)
 		if err != nil {
 			return nil, err
 		}
+		b.WriteByte(')')
 	}
-	b.WriteByte(')')
 	return args, nil
 }
 
-// Build builds the statement to which the expression is attached.
-func (wc *WhereExpr) Build() (string, []any, error) {
-	if wc.stmt != nil {
-		return wc.stmt.Build()
-	}
-	if wc.root == nil || wc.root.stmt == nil {
-		return "", nil, fmt.Errorf("pql: cannot build detached WHERE clause")
-	}
-	return wc.root.stmt.Build()
-}
-
-func (wc *WhereExpr) build(b *strings.Builder, args []any) ([]any, error) {
-	if strings.TrimSpace(wc.col) == "" {
-		return nil, fmt.Errorf("pql: WHERE condition is required")
-	}
-
-	col := wc.col
-	if wc.exprArgs != nil {
-		if placeholders := strings.Count(col, "?"); placeholders != len(wc.exprArgs) {
-			return nil, fmt.Errorf("pql: WHERE placeholder count %d does not match argument count %d", placeholders, len(wc.exprArgs))
+func (w WhereExpr) build(b *strings.Builder, args []any) ([]any, error) {
+	switch w.logical {
+	case "AND", "OR":
+		if len(w.children) == 0 {
+			if w.logical == "AND" {
+				b.WriteString("TRUE")
+			} else {
+				b.WriteString("FALSE")
+			}
+			return args, nil
 		}
-		for _, arg := range wc.exprArgs {
-			args = append(args, arg)
-			col = strings.Replace(col, "?", "$"+strconv.Itoa(len(args)), 1)
-		}
+		return buildConditions(w.children, w.logical, b, args)
+	case "NOT":
+		b.WriteString("NOT ")
+		return buildConditions(w.children, "", b, args)
 	}
-
-	switch {
-	case wc.op == "":
-		b.WriteString(col)
-	case wc.hasOpArg:
-		b.WriteString(col)
-		b.WriteString(wc.op)
-		args = append(args, wc.opArg)
-		b.WriteByte('$')
-		b.WriteString(strconv.Itoa(len(args)))
-	default:
-		b.WriteString(col)
-		b.WriteString(wc.op)
+	if strings.TrimSpace(w.expr) == "" {
+		return nil, errors.New("pql: WHERE condition is required")
 	}
-
-	if wc.and != nil {
-		b.WriteString(" AND (")
-		var err error
-		args, err = wc.and.build(b, args)
-		if err != nil {
-			return nil, err
-		}
-		b.WriteByte(')')
+	sql, err := numberPlaceholders(w.expr, len(args), len(w.args))
+	if err != nil {
+		return nil, err
 	}
-	if wc.or != nil {
-		b.WriteString(" OR (")
-		var err error
-		args, err = wc.or.build(b, args)
-		if err != nil {
-			return nil, err
-		}
-		b.WriteByte(')')
-	}
-
-	return args, nil
-}
-
-// And appends a right-grouped AND condition and returns it.
-func (wc *WhereExpr) And(col string, args ...any) *WhereExpr {
-	wc.and = &WhereExpr{stmt: wc.stmt, col: col, exprArgs: args, root: wc.root}
-	return wc.and
-}
-
-// Or appends a right-grouped OR condition and returns it.
-func (wc *WhereExpr) Or(col string, args ...any) *WhereExpr {
-	wc.or = &WhereExpr{stmt: wc.stmt, col: col, exprArgs: args, root: wc.root}
-	return wc.or
-}
-
-// IsNull applies the IS NULL operator.
-func (wc *WhereExpr) IsNull() *WhereExpr {
-	return wc.setPostfix(" IS NULL")
-}
-
-// IsNotNull applies the IS NOT NULL operator.
-func (wc *WhereExpr) IsNotNull() *WhereExpr {
-	return wc.setPostfix(" IS NOT NULL")
-}
-
-// Eq applies the equality operator with v.
-func (wc *WhereExpr) Eq(v any) *WhereExpr {
-	return wc.setBinary("=", v)
-}
-
-// Neq applies the inequality operator with v.
-func (wc *WhereExpr) Neq(v any) *WhereExpr {
-	return wc.setBinary("<>", v)
-}
-
-// Lt applies the less-than operator with v.
-func (wc *WhereExpr) Lt(v any) *WhereExpr {
-	return wc.setBinary("<", v)
-}
-
-// Gt applies the greater-than operator with v.
-func (wc *WhereExpr) Gt(v any) *WhereExpr {
-	return wc.setBinary(">", v)
-}
-
-// Le applies the less-than-or-equal operator with v.
-func (wc *WhereExpr) Le(v any) *WhereExpr {
-	return wc.setBinary("<=", v)
-}
-
-// Ge applies the greater-than-or-equal operator with v.
-func (wc *WhereExpr) Ge(v any) *WhereExpr {
-	return wc.setBinary(">=", v)
-}
-
-// Like applies the LIKE operator with v.
-func (wc *WhereExpr) Like(v any) *WhereExpr {
-	return wc.setBinary(" LIKE ", v)
-}
-
-// Ilike applies the ILIKE operator with v.
-func (wc *WhereExpr) Ilike(v any) *WhereExpr {
-	return wc.setBinary(" ILIKE ", v)
-}
-
-// Contains applies the containment operator with v.
-func (wc *WhereExpr) Contains(v any) *WhereExpr {
-	return wc.setBinary("@>", v)
-}
-
-// ContainedBy applies the contained-by operator with v.
-func (wc *WhereExpr) ContainedBy(v any) *WhereExpr {
-	return wc.setBinary("<@", v)
-}
-
-func (wc *WhereExpr) setBinary(op string, arg any) *WhereExpr {
-	wc.op = op
-	wc.opArg = arg
-	wc.hasOpArg = true
-	return wc
-}
-
-func (wc *WhereExpr) setPostfix(op string) *WhereExpr {
-	wc.op = op
-	wc.opArg = nil
-	wc.hasOpArg = false
-	return wc
+	b.WriteString(sql)
+	return append(args, w.args...), nil
 }
