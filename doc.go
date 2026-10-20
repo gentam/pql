@@ -9,7 +9,7 @@
 // Table names, column names, and SQL expressions are inserted verbatim, without
 // quoting or escaping, and must be trusted. Trailing line comments are terminated
 // with a newline so they do not consume subsequent SQL. Values supplied to Set,
-// Values, SetValues, or [Where] placeholders are bound parameters.
+// Values, SetValues, keyset helpers, or [Where] placeholders are bound parameters.
 //
 // Write complete WHERE conditions in SQL with unnumbered $ placeholders.
 // Statement Where and WhereNot methods append a condition with AND and return

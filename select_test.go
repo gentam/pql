@@ -84,6 +84,14 @@ func TestSelectBuild(t *testing.T) {
 				Desc("d", NullsLast),
 			want: buildResult{query: "SELECT * FROM t ORDER BY a ASC NULLS FIRST,b ASC NULLS LAST,c DESC NULLS FIRST,d DESC NULLS LAST"},
 		},
+		{
+			name: "last null ordering option wins",
+			stmt: Select().From("t").
+				Asc("a", NullsFirst, NullsLast).
+				Desc("b", NullsLast, NullsDefault).
+				Order("c", true, NullsOrder(99), NullsFirst),
+			want: buildResult{query: "SELECT * FROM t ORDER BY a ASC NULLS LAST,b DESC,c DESC NULLS FIRST"},
+		},
 		{name: "limit and offset", stmt: Select().From("t").Limit(1).Offset(10), want: buildResult{query: "SELECT * FROM t LIMIT 1 OFFSET 10"}},
 		{name: "explicit zero limit", stmt: Select().From("t").Limit(0), want: buildResult{query: "SELECT * FROM t LIMIT 0"}},
 		{name: "explicit zero offset", stmt: Select().From("t").Offset(0), want: buildResult{query: "SELECT * FROM t OFFSET 0"}},
@@ -160,7 +168,7 @@ func TestSelectCloneIndependentChanges(t *testing.T) {
 	source := &SelectStmt{
 		cols:  make([]string, 0, 4),
 		where: make([]WhereExpr, 0, 4),
-		order: make([]Order, 0, 4),
+		order: make([]OrderTerm, 0, 4),
 	}
 	source.Select("id").From("t").Asc("id", NullsLast).Limit(10).Offset(1)
 	source.Apply(And(Not(Where("a > $", 2)), Where("b=$", 3)))

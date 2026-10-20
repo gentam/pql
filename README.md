@@ -150,6 +150,10 @@ count := base.Clone().SetColumns("count(*)")
 `SelectStmt.Select` and `Returning` append result expressions. `SetColumns`,
 `SetOrders`, and `SetReturning` replace their lists; with no arguments they clear
 the list. An empty SELECT list means `*`.
+`OrderBy(terms...)` appends existing `OrderTerm` values; `Asc`, `Desc`, and `Order`
+construct and append individual terms. Calling `OrderBy()` leaves the ordering
+unchanged. For NULL placement, the last option wins; `NullsDefault` (0), also used
+when omitted, leaves placement to PostgreSQL.
 `ClearLimit` and `ClearOffset` remove pagination settings; an explicit `0` keeps
 the corresponding clause.
 
@@ -157,25 +161,31 @@ Supplied lists are copied, and `Clone` copies mutable statement containers.
 Bound values such as slices, maps, and pointers are not deep-copied. Do not
 modify source statements or bound values during concurrent builds or clones.
 
-## Ordering
+## Keyset pagination
 
-`Asc` and `Desc` can specify PostgreSQL NULL placement:
-
-```go
-order := pql.Desc("updated_at", pql.NullsLast)
-s := pql.Select().From("events").SetOrders(order)
-```
-
-An `Order` is a reusable value. `Reversed` returns the exact inverse without
-modifying the original order, including an explicit NULL placement.
+Use the same `OrderTerm` definitions for sorting and cursor conditions:
 
 ```go
-reversed := order.Reversed()
-// updated_at ASC NULLS FIRST
+orders := []pql.OrderTerm{
+	pql.Desc("updated_at", pql.NullsLast),
+	pql.Asc("id"),
+}
+page := pql.Select("id", "updated_at").From("items").
+	SetOrders(orders...).
+	Apply(pql.After(orders, lastUpdatedAt, lastID)).
+	Limit(20)
 ```
 
-Without an explicit option, PostgreSQL's defaults apply: ascending order puts
-NULLs last and descending order puts NULLs first.
+Supply one cursor value per order, including a unique tie-breaker such as `id`.
+Mixed directions and NULL placement are respected; pass `nil` for SQL NULL.
+Use stable scalar expressions valid in WHERE and cursor values pgx can encode
+for their SQL types.
+
+`After` and `Before` exclude the boundary; `AtOrAfter` and `AtOrBefore` include it.
+These helpers create conditions without changing the statement's ordering or limit.
+
+The runnable [pagination example](examples/pagination/README.md) covers first,
+next, and previous pages, reversed ordering, and date/NULL cursor handling.
 
 ## Errors
 
@@ -195,7 +205,7 @@ Always check the returned error before executing the SQL.
 
 Table names, column names, and raw SQL expressions are written into SQL as
 provided. They are not quoted or escaped. Only values passed through WHERE
-placeholders, `Set`, `Values`, or `SetValues` become pgx arguments.
+placeholders, `Set`, `Values`, `SetValues`, or keyset helpers become pgx arguments.
 
 Do not place untrusted input in identifiers or raw SQL fragments.
 

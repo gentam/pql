@@ -131,6 +131,14 @@ func TestTrailingLineCommentsPostgres(t *testing.T) {
 			},
 			want: []int{3},
 		},
+		{
+			name: "keyset",
+			build: func() queryStatement {
+				orders := []OrderTerm{Desc("n -- score"), Desc("id -- tie")}
+				return Select("id").From("pql_comments").SetOrders(orders...).Apply(After(orders, 20, 3))
+			},
+			want: []int{2, 1},
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
@@ -339,6 +347,8 @@ func TestWhereCompositionPostgres(t *testing.T) {
 		{"empty or", Or(), nil},
 		{"negated empty or", Not(Or()), []int{1, 2, 3, 4, 5, 6}},
 		{"bound values and comments", And(Where("id>$ -- lower", 1), Not(Where("id>$ -- upper", 3))), []int{2, 3}},
+		{"keyset in or", Or(Before([]OrderTerm{Asc("id")}, 2), After([]OrderTerm{Asc("id")}, 5)), []int{1, 6}},
+		{"negated keyset group", Not(Or(Before([]OrderTerm{Asc("id")}, 2), After([]OrderTerm{Asc("id")}, 5))), []int{2, 3, 4, 5}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			rows, err := Select("id").From(from).Apply(tt.w).Asc("id").Query(t.Context(), conn)

@@ -242,22 +242,22 @@ func TestBuildError(t *testing.T) {
 		},
 		{
 			name:  "zero order term",
-			build: func() Builder { return Select().From("t").SetOrders(Order{}) },
+			build: func() Builder { return Select().From("t").SetOrders(OrderTerm{}) },
 			want:  "pql: ORDER BY expression is required",
 		},
 		{
 			name: "invalid null ordering",
 			build: func() Builder {
-				return Select().From("t").Asc("a", NullsOrder(0))
+				return Select().From("t").Asc("a", NullsOrder(99))
 			},
-			want: "pql: invalid NULLS order 0",
+			want: "pql: invalid NULLS order 99",
 		},
 		{
-			name: "multiple null ordering options",
+			name: "invalid final null ordering option",
 			build: func() Builder {
-				return Select().From("t").Asc("a", NullsFirst, NullsLast)
+				return Select().From("t").Asc("a", NullsFirst, NullsOrder(99))
 			},
-			want: "pql: ORDER BY accepts at most 1 NULLS option, got 2",
+			want: "pql: invalid NULLS order 99",
 		},
 	}
 

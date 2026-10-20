@@ -8,7 +8,7 @@ import (
 
 // WhereExpr is an immutable value representing a complete WHERE condition.
 // Values can be copied and reused without cloning; internal data is shared.
-// Create conditions with [Where] or [WhereNot], and combine them with
+// Create conditions with [Where], [WhereNot], or the keyset helpers, and combine them with
 // [And], [Or], and [Not], or their method equivalents. Composition never changes
 // its inputs; use the returned expression to retain the result.
 // Build and execute SQL through a statement that uses the expression.
@@ -19,6 +19,7 @@ type WhereExpr struct {
 	args     []any
 	logical  string
 	children []WhereExpr
+	keyset   *keysetExpr
 }
 
 // Where creates a complete WHERE condition from trusted SQL and bound arguments.
@@ -141,6 +142,14 @@ func (w WhereExpr) build(b *strings.Builder, args []any) ([]any, error) {
 	case "NOT":
 		b.WriteString("NOT ")
 		return buildConditions(w.children, "", b, args)
+	}
+	if w.keyset != nil {
+		sql, args, err := w.keyset.build(args)
+		if err != nil {
+			return nil, err
+		}
+		b.WriteString(sql)
+		return args, nil
 	}
 	if strings.TrimSpace(w.expr) == "" {
 		return nil, errors.New("pql: WHERE condition is required")

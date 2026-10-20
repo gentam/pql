@@ -193,6 +193,7 @@ func TestWhereCompositionValidation(t *testing.T) {
 		{"zero value", WhereExpr{}, "pql: WHERE condition is required"},
 		{"empty leaf", Not(Where(" \t")), "pql: WHERE condition is required"},
 		{"missing value", Or(Where("true"), Where("b=$")), "pql: WHERE placeholder count 1 does not match argument count 0"},
+		{"invalid keyset", And(Or(), After(nil)), "pql: keyset requires at least one order"},
 		{"unterminated leaf", And(Where("a=$", 1), Where("b='")), "pql: unterminated string in WHERE expression"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -412,6 +413,7 @@ func TestWhereValueCopies(t *testing.T) {
 	}{
 		{"raw", Where("a=$", 1), "a=$1", []any{1}},
 		{"composed", Where("a=$", 1).Or(Where("b=$", 2)), "(a=$1) OR (b=$2)", []any{1, 2}},
+		{"keyset", After([]OrderTerm{Asc("id")}, 10), "((id) >= $1 AND $1 IS NOT NULL OR (id) IS NULL) AND (id) IS DISTINCT FROM $1", []any{10}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			original := tt.expr

@@ -12,7 +12,7 @@ type SelectStmt struct {
 	cols  []string
 	table string
 	where []WhereExpr
-	order []Order
+	order []OrderTerm
 
 	limit, offset       int
 	limitSet, offsetSet bool
@@ -39,9 +39,6 @@ func (s *SelectStmt) Clone() *SelectStmt {
 	cloned := *s
 	cloned.cols = slices.Clone(s.cols)
 	cloned.order = slices.Clone(s.order)
-	for i := range cloned.order {
-		cloned.order[i].nulls = slices.Clone(cloned.order[i].nulls)
-	}
 	cloned.where = slices.Clone(s.where)
 	return &cloned
 }
@@ -174,32 +171,43 @@ func (s *SelectStmt) Apply(exprs ...WhereExpr) *SelectStmt {
 	return s
 }
 
-// Asc appends an ascending order for col.
-func (s *SelectStmt) Asc(col string, nulls ...NullsOrder) *SelectStmt {
-	s.order = append(s.order, Asc(col, nulls...))
-	return s
+// Asc appends an ascending order for expr.
+// See [Asc] for NULL placement options.
+func (s *SelectStmt) Asc(expr string, nulls ...NullsOrder) *SelectStmt {
+	return s.OrderBy(Asc(expr, nulls...))
 }
 
-// Desc appends a descending order for col.
-func (s *SelectStmt) Desc(col string, nulls ...NullsOrder) *SelectStmt {
-	s.order = append(s.order, Desc(col, nulls...))
-	return s
+// Desc appends a descending order for expr.
+// See [Desc] for NULL placement options.
+func (s *SelectStmt) Desc(expr string, nulls ...NullsOrder) *SelectStmt {
+	return s.OrderBy(Desc(expr, nulls...))
 }
 
-// Order appends an order for col, descending when desc is true.
-func (s *SelectStmt) Order(col string, desc bool, nulls ...NullsOrder) *SelectStmt {
-	s.order = append(s.order, newOrder(col, desc, nulls...))
+// Order appends an order for expr, descending when desc is true.
+// See [Order] for NULL placement options.
+func (s *SelectStmt) Order(expr string, desc bool, nulls ...NullsOrder) *SelectStmt {
+	return s.OrderBy(Order(expr, desc, nulls...))
+}
+
+// OrderBy appends terms to the ORDER BY clause and returns the statement.
+// The input slice is copied. Calling it without arguments leaves the clause unchanged.
+// Use [SelectStmt.SetOrders] to replace the ordering.
+// See [OrderTerm] for validation, which occurs when the statement is built.
+func (s *SelectStmt) OrderBy(terms ...OrderTerm) *SelectStmt {
+	s.order = append(s.order, terms...)
 	return s
 }
 
 // Orders returns a copy of the statement's ordering.
-func (s *SelectStmt) Orders() []Order {
-	return append([]Order(nil), s.order...)
+func (s *SelectStmt) Orders() []OrderTerm {
+	return append([]OrderTerm(nil), s.order...)
 }
 
 // SetOrders replaces the statement's ordering with a copy of orders.
-func (s *SelectStmt) SetOrders(orders ...Order) *SelectStmt {
-	s.order = append([]Order(nil), orders...)
+// Calling it without arguments clears the ordering.
+// Use [SelectStmt.OrderBy] to append existing terms.
+func (s *SelectStmt) SetOrders(orders ...OrderTerm) *SelectStmt {
+	s.order = append([]OrderTerm(nil), orders...)
 	return s
 }
 

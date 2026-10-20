@@ -2,6 +2,7 @@ package pql_test
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/gentam/pql"
 )
@@ -80,7 +81,7 @@ func ExampleDelete() {
 	// DELETE FROM sessions WHERE (expires_at < (now() - interval '12h')) RETURNING id
 }
 
-func ExampleOrder_Reversed() {
+func ExampleOrderTerm_Reversed() {
 	order := pql.Desc("updated_at", pql.NullsLast)
 
 	query, _, err := pql.Select().From("events").
@@ -554,4 +555,101 @@ func ExampleWhereExpr_And() {
 	// [42]
 	// SELECT id FROM items WHERE ((tenant_id = $1) AND ((owner_id = $2) OR (NOT (private))))
 	// [42 7]
+}
+
+func ExampleOrder() {
+	descending := true
+	order := pql.Order("updated_at", descending, pql.NullsLast)
+	query, _, err := pql.Select().From("events").SetOrders(order).Build()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(query)
+
+	// Output:
+	// SELECT * FROM events ORDER BY updated_at DESC NULLS LAST
+}
+
+func ExampleOrder_nullPlacement() {
+	for _, order := range []pql.OrderTerm{
+		pql.Asc("id", pql.NullsFirst, pql.NullsLast),
+		pql.Asc("id", pql.NullsFirst, pql.NullsDefault),
+	} {
+		query, _, err := pql.Select().From("events").SetOrders(order).Build()
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(query)
+	}
+
+	// Output:
+	// SELECT * FROM events ORDER BY id ASC NULLS LAST
+	// SELECT * FROM events ORDER BY id ASC
+}
+
+func ExampleOrderTerm() {
+	orders := []pql.OrderTerm{pql.Desc("updated_at", pql.NullsLast), pql.Asc("id")}
+	restored := pql.ReversedOrders(pql.ReversedOrders(orders))
+	fmt.Println(slices.Equal(orders, restored))
+	fmt.Println(pql.Asc("id") == pql.Asc("id", pql.NullsDefault))
+	fmt.Println(pql.Asc("id") == pql.Asc("id", pql.NullsLast))
+
+	// Output:
+	// true
+	// true
+	// false
+}
+
+func ExampleSelectStmt_OrderBy() {
+	terms := []pql.OrderTerm{pql.Desc("updated_at", pql.NullsLast), pql.Asc("id")}
+	query, _, err := pql.Select("id").From("events").
+		Asc("tenant_id").OrderBy(terms...).Build()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(query)
+
+	// Output:
+	// SELECT id FROM events ORDER BY tenant_id ASC,updated_at DESC NULLS LAST,id ASC
+}
+
+func ExampleOrderTerm_Descending() {
+	order := pql.Desc("updated_at", pql.NullsLast)
+	fmt.Println(order.Descending(), order.NullsLast())
+	fmt.Println(order.Reversed().Descending(), order.Reversed().NullsLast())
+	// Output:
+	// true true
+	// false false
+}
+
+func ExampleReversedOrders() {
+	orders := []pql.OrderTerm{pql.Desc("updated_at", pql.NullsLast), pql.Asc("id")}
+	query, _, err := pql.Select().From("events").
+		SetOrders(pql.ReversedOrders(orders)...).Build()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(query)
+	fmt.Println(orders[0].Descending(), orders[0].NullsLast())
+
+	// Output:
+	// SELECT * FROM events ORDER BY updated_at ASC NULLS FIRST,id DESC
+	// true true
+}
+
+func ExampleAfter() {
+	orders := []pql.OrderTerm{pql.Desc("score", pql.NullsLast), pql.Asc("id")}
+	base := pql.Select("id").From("items")
+	page := base.Clone().SetOrders(orders...).
+		Apply(pql.After(orders, nil, 10)).Limit(20)
+	query, args, err := page.Build()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(query)
+	fmt.Println(args)
+
+	// Output:
+	// SELECT id FROM items WHERE (((score) <= $1 AND $1 IS NOT NULL OR (score) IS NULL) AND ((score) IS DISTINCT FROM $1 OR (((id) >= $2 AND $2 IS NOT NULL OR (id) IS NULL) AND (id) IS DISTINCT FROM $2))) ORDER BY score DESC NULLS LAST,id ASC LIMIT 20
+	// [<nil> 10]
 }
