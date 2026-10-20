@@ -20,6 +20,19 @@ func Insert(table string) *InsertStmt {
 	return &InsertStmt{table: table, m: Map{}}
 }
 
+// Clone copies the statement, including its values and RETURNING list.
+// Bound values are not deep-copied.
+// A nil receiver returns nil. The source must not be modified concurrently.
+func (s *InsertStmt) Clone() *InsertStmt {
+	if s == nil {
+		return nil
+	}
+	cloned := *s
+	cloned.m = maps.Clone(s.m)
+	cloned.returning = slices.Clone(s.returning)
+	return &cloned
+}
+
 // Build returns SQL, positional arguments, and a validation error.
 // The table must not be empty or whitespace-only, and at least one column
 // assignment is required.
@@ -73,10 +86,12 @@ func (s *InsertStmt) Set(col string, val any) *InsertStmt {
 }
 
 // Values merges m into the statement's values.
+// It accepts map[string]any, [Map], and other types defined as map[string]any.
 // Entries are copied, replacing earlier values for the same columns;
 // bound values are not deep-copied.
+// Use [InsertStmt.SetValues] to replace all assignments.
 // Empty or whitespace-only column names are rejected by [InsertStmt.Build].
-func (s *InsertStmt) Values(m Map) *InsertStmt {
+func (s *InsertStmt) Values(m map[string]any) *InsertStmt {
 	if s.m == nil {
 		s.m = Map{}
 	}
@@ -84,10 +99,28 @@ func (s *InsertStmt) Values(m Map) *InsertStmt {
 	return s
 }
 
+// SetValues replaces all column assignments with a copy of m.
+// Bound values are not deep-copied. Passing nil or an empty map clears all
+// assignments; [InsertStmt.Build] then reports an error until values are added.
+// See [InsertStmt.Values] for accepted map types and column validation.
+func (s *InsertStmt) SetValues(m map[string]any) *InsertStmt {
+	s.m = maps.Clone(m)
+	return s
+}
+
 // Returning appends cols to the RETURNING clause.
 // The column slice is copied. Calling it without arguments leaves the clause unchanged.
+// Use [InsertStmt.SetReturning] to replace the result expressions.
 // Empty or whitespace-only expressions are rejected by [InsertStmt.Build].
 func (s *InsertStmt) Returning(cols ...string) *InsertStmt {
 	s.returning = append(s.returning, cols...)
+	return s
+}
+
+// SetReturning replaces the RETURNING result expressions with a copy of cols.
+// Calling it without arguments removes the RETURNING clause.
+// See [InsertStmt.Returning] for result expression validation.
+func (s *InsertStmt) SetReturning(cols ...string) *InsertStmt {
+	s.returning = slices.Clone(cols)
 	return s
 }

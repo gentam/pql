@@ -9,7 +9,7 @@
 // Table names, column names, and SQL expressions are inserted verbatim, without
 // quoting or escaping, and must be trusted. Trailing line comments are terminated
 // with a newline so they do not consume subsequent SQL. Values supplied to Set,
-// Values, or [Where] placeholders are bound parameters.
+// Values, SetValues, or [Where] placeholders are bound parameters.
 //
 // Write complete WHERE conditions in SQL with unnumbered $ placeholders.
 // Statement Where and WhereNot methods append a condition with AND and return
@@ -24,9 +24,13 @@
 // is invalid and is rejected when the statement is built.
 //
 // Statements are mutable. Methods that configure them modify the receiver.
-// Bound values such as slices, maps, and pointers are not deep-copied.
+// Use [SelectStmt.Clone], [InsertStmt.Clone], [UpdateStmt.Clone], or
+// [DeleteStmt.Clone] to derive an independent statement; immutable conditions
+// are shared. Column, order, condition, and argument lists are copied
+// when supplied. Bound values such as slices, maps, and pointers are not
+// deep-copied.
 //
-// Concurrent builds and condition composition are safe while source
+// Concurrent builds, clones, and condition composition are safe while source
 // statements and bound values are not being modified. Callers must synchronize
 // edits with concurrent reads or edits of the same objects.
 package pql

@@ -47,6 +47,7 @@ func TestWherePlaceholderArgumentLists(t *testing.T) {
 			t.Parallel()
 			stmt := Select().From("t").Apply(Where(tt.expr, tt.args...))
 			assertBuild(t, stmt, tt.want)
+			assertBuild(t, stmt.Clone(), tt.want)
 		})
 	}
 }
@@ -82,6 +83,7 @@ func TestWhereWithoutArguments(t *testing.T) {
 					t.Parallel()
 					stmt := Select().From("t").Apply(call.w)
 					assertBuild(t, stmt, tt.want)
+					assertBuild(t, stmt.Clone(), tt.want)
 				})
 			}
 		})
@@ -108,6 +110,7 @@ func TestWhereTrailingLineComments(t *testing.T) {
 			t.Parallel()
 			stmt := Select().From("t").Apply(tt.w)
 			assertBuild(t, stmt, tt.want)
+			assertBuild(t, stmt.Clone(), tt.want)
 		})
 	}
 	t.Run("negation and following condition", func(t *testing.T) {
@@ -162,6 +165,7 @@ func TestWhereComposition(t *testing.T) {
 			stmt := Select().From("t").Apply(tt.w)
 			want := buildResult{query: "SELECT * FROM t WHERE (" + tt.query + ")", args: tt.args}
 			assertBuild(t, stmt, want)
+			assertBuild(t, stmt.Clone(), want)
 		})
 	}
 }
@@ -264,6 +268,7 @@ func TestWhereConcurrentComposition(t *testing.T) {
 				query: "DELETE FROM t WHERE ((a=$1) AND (NOT (b=$2)))", args: []any{1, 2},
 			})
 			assertBuild(t, shared, buildResult{query: "SELECT * FROM t WHERE ((a=$1) AND (NOT (b=$2)))", args: []any{1, 2}})
+			assertBuild(t, shared.Clone(), buildResult{query: "SELECT * FROM t WHERE ((a=$1) AND (NOT (b=$2)))", args: []any{1, 2}})
 		})
 	}
 }

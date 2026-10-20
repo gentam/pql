@@ -46,13 +46,38 @@ func TestDeleteBuild(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			stmt := tt.build()
 			assertBuild(t, stmt, tt.want)
+			assertBuild(t, stmt.Clone(), tt.want)
 		})
+	}
+}
+
+func TestDeleteSetReturning(t *testing.T) {
+	t.Parallel()
+	base := Delete("t").Where("c=$", 1).Returning("old")
+	cols := []string{"c", "c + 1 AS next"}
+	stmt := base.Clone()
+	if stmt.SetReturning(cols...) != stmt {
+		t.Fatal("SetReturning must return its receiver")
+	}
+	cols[0] = "changed"
+	stmt.Returning().Returning("c + 2")
+	assertBuild(t, stmt, buildResult{
+		query: "DELETE FROM t WHERE (c=$1) RETURNING c,c + 1 AS next,c + 2",
+		args:  []any{1},
+	})
+	assertBuild(t, base, buildResult{query: "DELETE FROM t WHERE (c=$1) RETURNING old", args: []any{1}})
+	assertBuild(t, stmt.SetReturning(), buildResult{query: "DELETE FROM t WHERE (c=$1)", args: []any{1}})
+	assertBuild(t, stmt.Returning("c").SetReturning([]string(nil)...), buildResult{query: "DELETE FROM t WHERE (c=$1)", args: []any{1}})
+	assertBuild(t, stmt.Returning("c").SetReturning([]string{}...), buildResult{query: "DELETE FROM t WHERE (c=$1)", args: []any{1}})
+	for _, col := range []string{"", "  "} {
+		assertBuild(t, stmt.SetReturning(col), buildResult{err: "pql: RETURNING expression is required"})
 	}
 }
 
 func TestDeleteSetWhere(t *testing.T) {
 	t.Parallel()
-	stmt := Delete("t").Returning("id").Where("old=$", 99)
+	base := Delete("t").Returning("id").Where("old=$", 99)
+	stmt := base.Clone()
 	exprs := []WhereExpr{Or(Where("a=$", 1), Where("b=$", 2)), Where("c=$", 3)}
 	if stmt.SetWhere(exprs...) != stmt {
 		t.Fatal("SetWhere must return its receiver")
@@ -64,6 +89,8 @@ func TestDeleteSetWhere(t *testing.T) {
 		args:  []any{1, 2, 3, 4},
 	}
 	assertBuild(t, stmt, want)
+	assertBuild(t, stmt.Clone(), want)
+	assertBuild(t, base, buildResult{query: "DELETE FROM t WHERE (old=$1) RETURNING id", args: []any{99}})
 
 	cleared := buildResult{query: "DELETE FROM t RETURNING id", args: nil}
 	assertBuild(t, stmt.SetWhere(), cleared)

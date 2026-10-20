@@ -12,7 +12,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Map associates column expressions with values.
+// Map associates columns with bound values for INSERT and UPDATE statements.
+// It is a shorthand for map literals; [InsertStmt.Values] and [UpdateStmt.Values]
+// also accept map[string]any and other types defined as map[string]any.
 type Map map[string]any
 
 // Builder builds SQL and its positional arguments.

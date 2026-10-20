@@ -18,6 +18,19 @@ func Delete(table string) *DeleteStmt {
 	return &DeleteStmt{table: table}
 }
 
+// Clone copies the statement, including its condition and RETURNING lists.
+// Immutable conditions are shared; bound values are not deep-copied.
+// A nil receiver returns nil. The source must not be modified concurrently.
+func (s *DeleteStmt) Clone() *DeleteStmt {
+	if s == nil {
+		return nil
+	}
+	cloned := *s
+	cloned.where = slices.Clone(s.where)
+	cloned.returning = slices.Clone(s.returning)
+	return &cloned
+}
+
 // Build returns SQL, positional arguments, and a validation error.
 // The table must not be empty or whitespace-only.
 func (s *DeleteStmt) Build() (string, []any, error) {
@@ -82,8 +95,17 @@ func (s *DeleteStmt) Apply(exprs ...WhereExpr) *DeleteStmt {
 
 // Returning appends cols to the RETURNING clause.
 // The column slice is copied. Calling it without arguments leaves the clause unchanged.
+// Use [DeleteStmt.SetReturning] to replace the result expressions.
 // Empty or whitespace-only expressions are rejected by [DeleteStmt.Build].
 func (s *DeleteStmt) Returning(cols ...string) *DeleteStmt {
 	s.returning = append(s.returning, cols...)
+	return s
+}
+
+// SetReturning replaces the RETURNING result expressions with a copy of cols.
+// Calling it without arguments removes the RETURNING clause.
+// See [DeleteStmt.Returning] for result expression validation.
+func (s *DeleteStmt) SetReturning(cols ...string) *DeleteStmt {
+	s.returning = slices.Clone(cols)
 	return s
 }

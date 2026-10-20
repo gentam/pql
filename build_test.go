@@ -277,6 +277,7 @@ func TestBuildEmptyColumnExpressions(t *testing.T) {
 	}{
 		{"select", func(col string) Builder { return Select(col) }, "pql: SELECT expression is required"},
 		{"select append", func(col string) Builder { return Select("id").Select(col) }, "pql: SELECT expression is required"},
+		{"select replace", func(col string) Builder { return Select("id").SetColumns("id", col) }, "pql: SELECT expression is required"},
 		{"insert set", func(col string) Builder { return Insert("t").Set("a", 1).Set(col, 2) }, "pql: INSERT column is required"},
 		{"insert values", func(col string) Builder { return Insert("t").Values(Map{"a": 1, col: 2}) }, "pql: INSERT column is required"},
 		{"update set", func(col string) Builder { return Update("t").Set("a", 1).Set(col, 2) }, "pql: UPDATE column is required"},

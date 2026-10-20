@@ -48,9 +48,11 @@ if err != nil {
 // args:  []any{"ACTIVE", 42}
 ```
 
-Both `Insert` and `Update` accept values individually with `Set`, or as a
-`pql.Map` with `Values`. Calls to either method are cumulative and may be mixed
-in any order; later values replace earlier values for the same column.
+INSERT and UPDATE also accept `Values(pql.Map{...})`; `pql.Map` is a shorter
+spelling for map literals. `Set` and `Values` merge assignments, with later values
+replacing earlier values for the same column. `SetValues(m)` copies and replaces
+all assignments. Passing nil or an empty map clears them; `Build` requires at
+least one assignment.
 
 ## Execute statements
 
@@ -135,6 +137,26 @@ Empty SQL and zero-valued `WhereExpr` inputs are build errors. For optional
 filters, branch before adding them. A nil bound value represents SQL NULL;
 use `IS NULL` when testing for NULL.
 
+## Derive statements
+
+All four statement types are mutable. Use `Clone` to derive independent queries:
+
+```go
+base := pql.Select("id", "title").From("items").Where("status=$", "OPEN")
+list := base.Clone().Desc("id").Limit(20)
+count := base.Clone().SetColumns("count(*)")
+```
+
+`SelectStmt.Select` and `Returning` append result expressions. `SetColumns`,
+`SetOrders`, and `SetReturning` replace their lists; with no arguments they clear
+the list. An empty SELECT list means `*`.
+`ClearLimit` and `ClearOffset` remove pagination settings; an explicit `0` keeps
+the corresponding clause.
+
+Supplied lists are copied, and `Clone` copies mutable statement containers.
+Bound values such as slices, maps, and pointers are not deep-copied. Do not
+modify source statements or bound values during concurrent builds or clones.
+
 ## Ordering
 
 `Asc` and `Desc` can specify PostgreSQL NULL placement:
@@ -173,7 +195,7 @@ Always check the returned error before executing the SQL.
 
 Table names, column names, and raw SQL expressions are written into SQL as
 provided. They are not quoted or escaped. Only values passed through WHERE
-placeholders, `Set`, or `Values` become pgx arguments.
+placeholders, `Set`, `Values`, or `SetValues` become pgx arguments.
 
 Do not place untrusted input in identifiers or raw SQL fragments.
 

@@ -19,18 +19,65 @@ type SelectStmt struct {
 }
 
 // Select creates a SELECT statement with cols.
+// If no result expressions are added, the statement selects *.
+// The column slice is copied. [SelectStmt.Select] appends more result expressions;
+// [SelectStmt.SetColumns] replaces them.
+// Empty or whitespace-only expressions are rejected by [SelectStmt.Build].
 func Select(cols ...string) *SelectStmt {
-	return &SelectStmt{cols: cols}
+	return &SelectStmt{cols: slices.Clone(cols)}
+}
+
+// Clone copies the statement, including its columns, condition list, ordering,
+// and LIMIT/OFFSET settings.
+//
+// Immutable conditions are shared; bound values are not deep-copied.
+// A nil receiver returns nil. The source must not be modified concurrently.
+func (s *SelectStmt) Clone() *SelectStmt {
+	if s == nil {
+		return nil
+	}
+	cloned := *s
+	cloned.cols = slices.Clone(s.cols)
+	cloned.order = slices.Clone(s.order)
+	for i := range cloned.order {
+		cloned.order[i].nulls = slices.Clone(cloned.order[i].nulls)
+	}
+	cloned.where = slices.Clone(s.where)
+	return &cloned
 }
 
 // Select appends result expressions to the statement.
+// The column slice is copied. Use [SelectStmt.SetColumns] to replace them.
+// See [Select] for result expression validation.
 func (s *SelectStmt) Select(cols ...string) *SelectStmt {
 	s.cols = append(s.cols, cols...)
 	return s
 }
 
-// OffsetValue returns the statement's offset.
-func (s *SelectStmt) OffsetValue() int { return s.offset }
+// Columns returns a copy of the configured result expressions in their specified
+// order, without parsing them. If none are configured, it returns an empty slice;
+// the default * selection is not added.
+func (s *SelectStmt) Columns() []string {
+	return slices.Clone(s.cols)
+}
+
+// SetColumns replaces the statement's result expressions with a copy of cols.
+// Calling it without arguments makes the statement select *.
+// See [Select] for result expression validation.
+func (s *SelectStmt) SetColumns(cols ...string) *SelectStmt {
+	s.cols = slices.Clone(cols)
+	return s
+}
+
+// OffsetValue returns the configured offset and whether it is set.
+// An unset offset returns (0, false); an explicit Offset(0) returns (0, true).
+// Negative values are returned unchanged and rejected by [SelectStmt.Build].
+func (s *SelectStmt) OffsetValue() (n int, set bool) { return s.offset, s.offsetSet }
+
+// LimitValue returns the configured limit and whether it is set.
+// An unset limit returns (0, false); an explicit Limit(0) returns (0, true).
+// Negative values are returned unchanged and rejected by [SelectStmt.Build].
+func (s *SelectStmt) LimitValue() (n int, set bool) { return s.limit, s.limitSet }
 
 // Build returns SQL, positional arguments, and a validation error.
 func (s *SelectStmt) Build() (string, []any, error) {
@@ -158,18 +205,34 @@ func (s *SelectStmt) SetOrders(orders ...Order) *SelectStmt {
 
 // Limit sets the maximum number of rows returned.
 // A value of 0 is honored as LIMIT 0 and must be set explicitly;
-// negative values are rejected by Build.
+// negative values are rejected by [SelectStmt.Build].
+// Use [SelectStmt.ClearLimit] to remove the limit.
 func (s *SelectStmt) Limit(n int) *SelectStmt {
 	s.limit = n
 	s.limitSet = true
 	return s
 }
 
+// ClearLimit removes the LIMIT clause.
+func (s *SelectStmt) ClearLimit() *SelectStmt {
+	s.limit = 0
+	s.limitSet = false
+	return s
+}
+
 // Offset sets the number of rows skipped.
 // A value of 0 is honored as OFFSET 0 and must be set explicitly;
-// negative values are rejected by Build.
+// negative values are rejected by [SelectStmt.Build].
+// Use [SelectStmt.ClearOffset] to remove the offset.
 func (s *SelectStmt) Offset(n int) *SelectStmt {
 	s.offset = n
 	s.offsetSet = true
+	return s
+}
+
+// ClearOffset removes the OFFSET clause.
+func (s *SelectStmt) ClearOffset() *SelectStmt {
+	s.offset = 0
+	s.offsetSet = false
 	return s
 }

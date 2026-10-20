@@ -21,6 +21,20 @@ func Update(table string) *UpdateStmt {
 	return &UpdateStmt{table: table, m: Map{}}
 }
 
+// Clone copies the statement, including its values, condition list, and RETURNING list.
+// Immutable conditions are shared; bound values are not deep-copied.
+// A nil receiver returns nil. The source must not be modified concurrently.
+func (s *UpdateStmt) Clone() *UpdateStmt {
+	if s == nil {
+		return nil
+	}
+	cloned := *s
+	cloned.m = maps.Clone(s.m)
+	cloned.where = slices.Clone(s.where)
+	cloned.returning = slices.Clone(s.returning)
+	return &cloned
+}
+
 // Build returns SQL, positional arguments, and a validation error.
 // The table must not be empty or whitespace-only, and at least one column
 // assignment is required.
@@ -80,14 +94,25 @@ func (s *UpdateStmt) Set(col string, val any) *UpdateStmt {
 }
 
 // Values merges m into the statement's values.
+// It accepts map[string]any, [Map], and other types defined as map[string]any.
 // Entries are copied, replacing earlier values for the same columns;
 // bound values are not deep-copied.
+// Use [UpdateStmt.SetValues] to replace all assignments.
 // Empty or whitespace-only column names are rejected by [UpdateStmt.Build].
-func (s *UpdateStmt) Values(m Map) *UpdateStmt {
+func (s *UpdateStmt) Values(m map[string]any) *UpdateStmt {
 	if s.m == nil {
 		s.m = Map{}
 	}
 	maps.Copy(s.m, m)
+	return s
+}
+
+// SetValues replaces all column assignments with a copy of m.
+// Bound values are not deep-copied. Passing nil or an empty map clears all
+// assignments; [UpdateStmt.Build] then reports an error until values are added.
+// See [UpdateStmt.Values] for accepted map types and column validation.
+func (s *UpdateStmt) SetValues(m map[string]any) *UpdateStmt {
+	s.m = maps.Clone(m)
 	return s
 }
 
@@ -126,8 +151,17 @@ func (s *UpdateStmt) Apply(exprs ...WhereExpr) *UpdateStmt {
 
 // Returning appends cols to the RETURNING clause.
 // The column slice is copied. Calling it without arguments leaves the clause unchanged.
+// Use [UpdateStmt.SetReturning] to replace the result expressions.
 // Empty or whitespace-only expressions are rejected by [UpdateStmt.Build].
 func (s *UpdateStmt) Returning(cols ...string) *UpdateStmt {
 	s.returning = append(s.returning, cols...)
+	return s
+}
+
+// SetReturning replaces the RETURNING result expressions with a copy of cols.
+// Calling it without arguments removes the RETURNING clause.
+// See [UpdateStmt.Returning] for result expression validation.
+func (s *UpdateStmt) SetReturning(cols ...string) *UpdateStmt {
+	s.returning = slices.Clone(cols)
 	return s
 }
