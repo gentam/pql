@@ -40,7 +40,21 @@ func (s *UpdateStmt) Clone() *UpdateStmt {
 // The table must not be empty or whitespace-only, at least one column
 // assignment is required, and a WHERE condition is required unless
 // [UpdateStmt.All] was called.
+//
+// It is equivalent to BuildAt(0).
 func (s *UpdateStmt) Build() (string, []any, error) {
+	return s.BuildAt(0)
+}
+
+// BuildAt is like [UpdateStmt.Build] but numbers placeholders from offset+1,
+// for embedding the statement in SQL that already binds offset arguments,
+// such as a data-modifying WITH query. The returned arguments exclude those
+// offset arguments. A negative offset is an error.
+func (s *UpdateStmt) BuildAt(offset int) (string, []any, error) {
+	args, err := startArgs(offset)
+	if err != nil {
+		return "", nil, err
+	}
 	if len(s.m) == 0 && strings.TrimSpace(s.table) != "" {
 		return "", nil, errors.New("pql: UPDATE values are required")
 	}
@@ -53,7 +67,6 @@ func (s *UpdateStmt) Build() (string, []any, error) {
 
 	b.WriteString(" SET ")
 	cols := slices.Sorted(maps.Keys(s.m))
-	args := make([]any, len(cols))
 	for i, col := range cols {
 		if i != 0 {
 			b.WriteByte(',')
@@ -61,13 +74,12 @@ func (s *UpdateStmt) Build() (string, []any, error) {
 		if err := writeRawSQL(b, col, "UPDATE column"); err != nil {
 			return "", nil, err
 		}
+		args = append(args, s.m[col])
 		b.WriteString("=$")
-		args[i] = s.m[col]
-		b.WriteString(strconv.Itoa(i + 1))
+		b.WriteString(strconv.Itoa(len(args)))
 	}
 
 	if len(s.where) != 0 {
-		var err error
 		args, err = buildWhere(s.where, b, args)
 		if err != nil {
 			return "", nil, err
@@ -82,7 +94,7 @@ func (s *UpdateStmt) Build() (string, []any, error) {
 		}
 	}
 
-	return b.String(), args, nil
+	return b.String(), finishArgs(args, offset), nil
 }
 
 // Set assigns val to col.

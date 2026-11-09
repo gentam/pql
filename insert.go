@@ -36,7 +36,21 @@ func (s *InsertStmt) Clone() *InsertStmt {
 // Build returns SQL, positional arguments, and a validation error.
 // The table must not be empty or whitespace-only, and at least one column
 // assignment is required.
+//
+// It is equivalent to BuildAt(0).
 func (s *InsertStmt) Build() (string, []any, error) {
+	return s.BuildAt(0)
+}
+
+// BuildAt is like [InsertStmt.Build] but numbers placeholders from offset+1,
+// for embedding the statement in SQL that already binds offset arguments,
+// such as a data-modifying WITH query. The returned arguments exclude those
+// offset arguments. A negative offset is an error.
+func (s *InsertStmt) BuildAt(offset int) (string, []any, error) {
+	args, err := startArgs(offset)
+	if err != nil {
+		return "", nil, err
+	}
 	if len(s.m) == 0 && strings.TrimSpace(s.table) != "" {
 		return "", nil, errors.New("pql: INSERT values are required")
 	}
@@ -47,21 +61,19 @@ func (s *InsertStmt) Build() (string, []any, error) {
 		return "", nil, err
 	}
 
-	n := len(s.m)
 	cols := slices.Sorted(maps.Keys(s.m))
-	args := make([]any, n)
-	for i, col := range cols {
-		args[i] = s.m[col]
-	}
-
 	b.WriteString(" (")
 	if err := writeSQLList(b, cols, "INSERT column"); err != nil {
 		return "", nil, err
 	}
-	b.WriteString(") VALUES ($1")
-	for i := 2; i <= n; i++ {
-		b.WriteString(",$")
-		b.WriteString(strconv.Itoa(i))
+	b.WriteString(") VALUES (")
+	for i, col := range cols {
+		if i != 0 {
+			b.WriteByte(',')
+		}
+		args = append(args, s.m[col])
+		b.WriteByte('$')
+		b.WriteString(strconv.Itoa(len(args)))
 	}
 	b.WriteByte(')')
 
@@ -71,7 +83,7 @@ func (s *InsertStmt) Build() (string, []any, error) {
 		}
 	}
 
-	return b.String(), args, nil
+	return b.String(), finishArgs(args, offset), nil
 }
 
 // Set assigns val to col.

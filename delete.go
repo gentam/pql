@@ -35,16 +35,28 @@ func (s *DeleteStmt) Clone() *DeleteStmt {
 // Build returns SQL, positional arguments, and a validation error.
 // The table must not be empty or whitespace-only, and a WHERE condition is
 // required unless [DeleteStmt.All] was called.
+//
+// It is equivalent to BuildAt(0).
 func (s *DeleteStmt) Build() (string, []any, error) {
+	return s.BuildAt(0)
+}
+
+// BuildAt is like [DeleteStmt.Build] but numbers placeholders from offset+1,
+// for embedding the statement in SQL that already binds offset arguments,
+// such as a data-modifying WITH query. The returned arguments exclude those
+// offset arguments. A negative offset is an error.
+func (s *DeleteStmt) BuildAt(offset int) (string, []any, error) {
+	args, err := startArgs(offset)
+	if err != nil {
+		return "", nil, err
+	}
 	b := &strings.Builder{}
 	b.WriteString("DELETE FROM ")
 	if err := writeRawSQL(b, s.table, "DELETE table"); err != nil {
 		return "", nil, err
 	}
 
-	var args []any
 	if len(s.where) != 0 {
-		var err error
 		args, err = buildWhere(s.where, b, args)
 		if err != nil {
 			return "", nil, err
@@ -59,7 +71,7 @@ func (s *DeleteStmt) Build() (string, []any, error) {
 		}
 	}
 
-	return b.String(), args, nil
+	return b.String(), finishArgs(args, offset), nil
 }
 
 // Where appends a complete SQL condition with AND and returns the statement.

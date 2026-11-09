@@ -159,6 +159,24 @@ Supplied lists are copied, and `Clone` copies mutable statement containers.
 Bound values such as slices, maps, and pointers are not deep-copied. Do not
 modify source statements or bound values during concurrent builds or clones.
 
+## Embed in hand-written SQL
+
+`BuildAt(offset)` builds a statement or `WhereExpr` with placeholders numbered
+after `offset` existing arguments, so it can be embedded in SQL that pql does not
+build. A condition is returned in parentheses:
+
+```go
+args := []any{name, facilityID}
+cond, condArgs, err := allowed.BuildAt(len(args)) // numbered from $3
+if err != nil {
+	return err
+}
+query := "INSERT INTO items (name, facility_id) SELECT $1, $2 WHERE " + cond
+args = append(args, condArgs...)
+```
+
+`Build()` is equivalent to `BuildAt(0)`.
+
 ## Keyset pagination
 
 Use the same `OrderTerm` definitions for sorting and cursor conditions:

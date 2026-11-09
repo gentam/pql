@@ -77,7 +77,20 @@ func (s *SelectStmt) OffsetValue() (n int, set bool) { return s.offset, s.offset
 func (s *SelectStmt) LimitValue() (n int, set bool) { return s.limit, s.limitSet }
 
 // Build returns SQL, positional arguments, and a validation error.
+// It is equivalent to BuildAt(0).
 func (s *SelectStmt) Build() (string, []any, error) {
+	return s.BuildAt(0)
+}
+
+// BuildAt is like [SelectStmt.Build] but numbers placeholders from offset+1,
+// for embedding the statement in SQL that already binds offset arguments,
+// such as a subquery. The returned arguments exclude those offset arguments.
+// A negative offset is an error.
+func (s *SelectStmt) BuildAt(offset int) (string, []any, error) {
+	args, err := startArgs(offset)
+	if err != nil {
+		return "", nil, err
+	}
 	b := &strings.Builder{}
 	b.WriteString("SELECT ")
 
@@ -96,9 +109,7 @@ func (s *SelectStmt) Build() (string, []any, error) {
 		}
 	}
 
-	var args []any
 	if len(s.where) != 0 {
-		var err error
 		args, err = buildWhere(s.where, b, args)
 		if err != nil {
 			return "", nil, err
@@ -126,7 +137,7 @@ func (s *SelectStmt) Build() (string, []any, error) {
 		b.WriteString(strconv.Itoa(s.offset))
 	}
 
-	return b.String(), args, nil
+	return b.String(), finishArgs(args, offset), nil
 }
 
 // From sets the table expression.

@@ -215,6 +215,26 @@ func isNilQuerier(q Querier) bool {
 	return v.Kind() == reflect.Pointer && v.IsNil()
 }
 
+// startArgs returns an argument slice whose length reserves the first offset
+// parameter numbers, so that placeholders are numbered from offset+1.
+func startArgs(offset int) ([]any, error) {
+	if offset < 0 {
+		return nil, errors.New("pql: parameter offset must not be negative")
+	}
+	if offset == 0 {
+		return nil, nil
+	}
+	return make([]any, offset), nil
+}
+
+// finishArgs removes the reserved prefix added by startArgs.
+func finishArgs(args []any, offset int) []any {
+	if len(args) == offset {
+		return nil
+	}
+	return args[offset:]
+}
+
 func buildReturning(b *strings.Builder, returning []string) error {
 	b.WriteString(" RETURNING ")
 	return writeSQLList(b, returning, "RETURNING expression")

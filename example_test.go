@@ -653,3 +653,37 @@ func ExampleAfter() {
 	// SELECT id FROM items WHERE (((score) <= $1 AND $1 IS NOT NULL OR (score) IS NULL) AND ((score) IS DISTINCT FROM $1 OR (((id) >= $2 AND $2 IS NOT NULL OR (id) IS NULL) AND (id) IS DISTINCT FROM $2))) ORDER BY score DESC NULLS LAST,id ASC LIMIT 20
 	// [<nil> 10]
 }
+
+func ExampleWhereExpr_BuildAt() {
+	// Hand-written SQL binds $1 and $2; the reusable condition continues at $3.
+	allowed := pql.Where("EXISTS (SELECT 1 FROM staff WHERE user_id = $ AND facility_id = $)", "u1", "f1")
+	args := []any{"Blanket", "f1"}
+	cond, condArgs, err := allowed.BuildAt(len(args))
+	if err != nil {
+		panic(err)
+	}
+	query := "INSERT INTO items (name, facility_id) SELECT $1, $2 WHERE " + cond
+	args = append(args, condArgs...)
+	fmt.Println(query)
+	fmt.Println(args)
+	// Output:
+	// INSERT INTO items (name, facility_id) SELECT $1, $2 WHERE (EXISTS (SELECT 1 FROM staff WHERE user_id = $3 AND facility_id = $4))
+	// [Blanket f1 u1 f1]
+}
+
+func ExampleSelectStmt_BuildAt() {
+	// The outer query binds $1 before the embedded subquery.
+	recent := pql.Select("item_id").From("events").Where("kind = $", "viewed")
+	args := []any{"alice"}
+	sub, subArgs, err := recent.BuildAt(len(args))
+	if err != nil {
+		panic(err)
+	}
+	query := "SELECT id FROM items WHERE owner = $1 AND id IN (" + sub + ")"
+	args = append(args, subArgs...)
+	fmt.Println(query)
+	fmt.Println(args)
+	// Output:
+	// SELECT id FROM items WHERE owner = $1 AND id IN (SELECT item_id FROM events WHERE (kind = $2))
+	// [alice viewed]
+}

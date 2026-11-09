@@ -11,7 +11,8 @@ import (
 // Create conditions with [Where], [WhereNot], or the keyset helpers, and combine them with
 // [And], [Or], and [Not], or their method equivalents. Composition never changes
 // its inputs; use the returned expression to retain the result.
-// Build and execute SQL through a statement that uses the expression.
+// Build and execute SQL through a statement that uses the expression, or embed
+// it in hand-written SQL with [WhereExpr.BuildAt].
 // Bound values such as slices, maps, and pointers are not deep-copied and must
 // not be modified during concurrent builds. The zero value is invalid.
 type WhereExpr struct {
@@ -102,6 +103,31 @@ func (w WhereExpr) Or(exprs ...WhereExpr) WhereExpr {
 // A zero-valued receiver is rejected at Build time. See [Not] for SQL NULL handling.
 func (w WhereExpr) Not() WhereExpr {
 	return Not(w)
+}
+
+// BuildAt returns the condition as SQL with placeholders numbered from
+// offset+1, together with its bound arguments. Use it to embed a condition in
+// SQL written by hand that already binds offset arguments:
+//
+//	cond, condArgs, err := filter.BuildAt(len(args))
+//	sql := "INSERT INTO t (a) SELECT $1 WHERE " + cond
+//	args = append(args, condArgs...)
+//
+// The SQL is enclosed in parentheses so that it can be combined with other
+// conditions, and a trailing line comment is terminated. A negative offset,
+// a zero-valued expression, and the validation errors described for [Where]
+// are reported as errors.
+func (w WhereExpr) BuildAt(offset int) (string, []any, error) {
+	args, err := startArgs(offset)
+	if err != nil {
+		return "", nil, err
+	}
+	b := &strings.Builder{}
+	args, err = buildConditions([]WhereExpr{w}, "", b, args)
+	if err != nil {
+		return "", nil, err
+	}
+	return b.String(), finishArgs(args, offset), nil
 }
 
 func buildWhere(ws []WhereExpr, b *strings.Builder, args []any) ([]any, error) {

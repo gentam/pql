@@ -2,6 +2,8 @@
 //
 // Use [Select], [Insert], [Update], or [Delete] to create a statement. Its Build
 // method returns SQL and positional arguments without connecting to a database.
+// BuildAt, also available on [WhereExpr], numbers placeholders after a given
+// offset so the result can be embedded in hand-written SQL.
 // Execution methods use a supplied [Querier] or the pool configured with
 // [SetDefaultPool]. Validation errors are reported by Build or execution methods;
 // QueryRow reports errors through Scan.
