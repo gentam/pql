@@ -16,6 +16,8 @@ type SelectStmt struct {
 
 	limit, offset       int
 	limitSet, offsetSet bool
+
+	lock string
 }
 
 // Select creates a SELECT statement with cols.
@@ -28,7 +30,7 @@ func Select(cols ...string) *SelectStmt {
 }
 
 // Clone copies the statement, including its columns, condition list, ordering,
-// and LIMIT/OFFSET settings.
+// LIMIT/OFFSET settings, and locking clause.
 //
 // Immutable conditions are shared; bound values are not deep-copied.
 // A nil receiver returns nil. The source must not be modified concurrently.
@@ -138,6 +140,13 @@ func (s *SelectStmt) BuildAt(offset int) (string, []any, error) {
 		}
 		b.WriteString(" OFFSET ")
 		b.WriteString(strconv.Itoa(s.offset))
+	}
+
+	if s.lock != "" {
+		b.WriteByte(' ')
+		if err := writeLock(b, s.lock); err != nil {
+			return "", nil, err
+		}
 	}
 
 	return b.String(), finishArgs(args, offset), nil
@@ -255,9 +264,29 @@ func (s *SelectStmt) Offset(n int) *SelectStmt {
 	return s
 }
 
+// Lock sets the row-locking clause written after LIMIT and OFFSET, such as
+// "FOR UPDATE", "FOR SHARE OF items", or "FOR UPDATE SKIP LOCKED".
+// The clause is trusted SQL, like other expressions, and must begin with FOR;
+// several clauses may be given in one string. An empty string removes it.
+// [SelectStmt.Exists] and [SelectStmt.Count] keep the clause, so they lock the
+// rows they examine.
+func (s *SelectStmt) Lock(clause string) *SelectStmt {
+	s.lock = clause
+	return s
+}
+
 // ClearOffset removes the OFFSET clause.
 func (s *SelectStmt) ClearOffset() *SelectStmt {
 	s.offset = 0
 	s.offsetSet = false
 	return s
+}
+
+// writeLock validates and writes a row-locking clause.
+func writeLock(b *strings.Builder, clause string) error {
+	fields := strings.Fields(clause)
+	if len(fields) == 0 || !strings.EqualFold(fields[0], "FOR") {
+		return errors.New("pql: locking clause must begin with FOR")
+	}
+	return writeRawSQL(b, clause, "locking clause")
 }

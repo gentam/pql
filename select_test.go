@@ -388,3 +388,35 @@ func TestSelectAccessorsReturnNilWhenEmpty(t *testing.T) {
 	cols[0], orders[0] = "changed", Desc("changed")
 	assertBuild(t, s, buildResult{query: "SELECT id ORDER BY id ASC"})
 }
+
+func TestSelectLock(t *testing.T) {
+	t.Parallel()
+	orders := []OrderTerm{Asc("id")}
+	for _, tt := range []struct {
+		name string
+		stmt *SelectStmt
+		want buildResult
+	}{
+		{"for update", Select("id").From("t").Where("id=$", 1).Lock("FOR UPDATE"), buildResult{query: "SELECT id FROM t WHERE (id=$1) FOR UPDATE", args: []any{1}}},
+		{"after limit and offset", Select("id").From("t").Asc("id").Limit(10).Offset(5).Lock("FOR UPDATE SKIP LOCKED"), buildResult{query: "SELECT id FROM t ORDER BY id ASC LIMIT 10 OFFSET 5 FOR UPDATE SKIP LOCKED"}},
+		{"of tables and several clauses", Select("i.id").From("items i JOIN files f ON f.item_id = i.id").Lock("for share of f for update of i nowait"), buildResult{query: "SELECT i.id FROM items i JOIN files f ON f.item_id = i.id for share of f for update of i nowait"}},
+		{"replaced", Select().From("t").Lock("FOR SHARE").Lock("FOR UPDATE"), buildResult{query: "SELECT * FROM t FOR UPDATE"}},
+		{"removed", Select().From("t").Lock("FOR UPDATE").Lock(""), buildResult{query: "SELECT * FROM t"}},
+		{"with keyset", Select("id").From("t").Apply(After(orders, 3)).Limit(1).Lock("FOR UPDATE"), buildResult{query: "SELECT id FROM t WHERE (((id) >= $1 OR (id) IS NULL) AND (id) IS DISTINCT FROM $1) LIMIT 1 FOR UPDATE", args: []any{3}}},
+		{"trailing comment", Select().From("t").Lock("FOR UPDATE -- wait"), buildResult{query: "SELECT * FROM t FOR UPDATE -- wait\n"}},
+		{"missing FOR", Select().From("t").Lock("UPDATE"), buildResult{err: "pql: locking clause must begin with FOR"}},
+		{"FOR prefix of a word", Select().From("t").Lock("FORUPDATE"), buildResult{err: "pql: locking clause must begin with FOR"}},
+		{"blank", Select().From("t").Lock(" \t"), buildResult{err: "pql: locking clause must begin with FOR"}},
+		{"placeholder", Select().From("t").Lock("FOR UPDATE OF $"), buildResult{err: "pql: placeholders are not supported in locking clause; bind values in WHERE conditions"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assertBuild(t, tt.stmt, tt.want)
+			assertBuild(t, tt.stmt.Clone(), tt.want)
+		})
+	}
+	base := Select().From("t").Lock("FOR UPDATE")
+	clone := base.Clone().Lock("")
+	assertBuild(t, base, buildResult{query: "SELECT * FROM t FOR UPDATE"})
+	assertBuild(t, clone, buildResult{query: "SELECT * FROM t"})
+}

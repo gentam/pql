@@ -196,6 +196,51 @@ func TestSelectCountPostgres(t *testing.T) {
 	}
 }
 
+func TestSelectLockPostgres(t *testing.T) {
+	t.Parallel()
+	url := os.Getenv("PQL_TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("set PQL_TEST_DATABASE_URL to test locking clauses against PostgreSQL")
+	}
+	ctx := t.Context()
+	conn, err := pgx.Connect(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conn.Close(context.Background()) })
+	if _, err := conn.Exec(ctx, `
+		CREATE TEMP TABLE pql_lock_items (id integer PRIMARY KEY);
+		CREATE TEMP TABLE pql_lock_files (id integer PRIMARY KEY, item_id integer);
+		INSERT INTO pql_lock_items SELECT generate_series(1, 5);
+		INSERT INTO pql_lock_files SELECT i, i FROM generate_series(1, 5) AS i`); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { tx.Rollback(context.Background()) })
+	base := Select("i.id").From("pql_lock_items AS i JOIN pql_lock_files AS f ON f.item_id = i.id").
+		Where("i.id > $", 2).Desc("i.id")
+	for _, clause := range []string{"FOR UPDATE", "FOR SHARE OF f", "FOR UPDATE OF i SKIP LOCKED", "FOR NO KEY UPDATE OF i FOR KEY SHARE OF f NOWAIT"} {
+		stmt := base.Clone().Lock(clause)
+		rows, err := stmt.Clone().Limit(2).Query(ctx, tx)
+		if err != nil {
+			t.Fatalf("%s: %v", clause, err)
+		}
+		ids, err := pgx.CollectRows(rows, pgx.RowTo[int])
+		if err != nil || !slices.Equal(ids, []int{5, 4}) {
+			t.Fatalf("%s: ids %v, error %v; want [5 4]", clause, ids, err)
+		}
+		if count, err := stmt.Count(ctx, tx); err != nil || count != 3 {
+			t.Fatalf("%s: Count() = (%d, %v), want (3, nil)", clause, count, err)
+		}
+		if exists, err := stmt.Exists(ctx, tx); err != nil || !exists {
+			t.Fatalf("%s: Exists() = (%t, %v), want (true, nil)", clause, exists, err)
+		}
+	}
+}
+
 func TestStatementExecutionPostgres(t *testing.T) {
 	t.Parallel()
 	url := os.Getenv("PQL_TEST_DATABASE_URL")

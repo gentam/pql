@@ -368,6 +368,12 @@ func TestSelectExists(t *testing.T) {
 			row:   true,
 		},
 		{
+			name:  "locking clause is kept",
+			stmt:  Select("id").From("items").Desc("id").Lock("FOR UPDATE SKIP LOCKED"),
+			query: "SELECT EXISTS (SELECT id FROM items FOR UPDATE SKIP LOCKED)",
+			row:   true,
+		},
+		{
 			name:  "zero limit and offset",
 			stmt:  Select("1").From("items").Limit(0).Offset(0),
 			query: "SELECT EXISTS (SELECT 1 FROM items LIMIT 0 OFFSET 0)",
@@ -467,6 +473,12 @@ func TestSelectCount(t *testing.T) {
 			stmt:  Select("id").From("items").Desc("id").Limit(10).Offset(5),
 			query: "SELECT count(*) FROM (SELECT id FROM items ORDER BY id DESC LIMIT 10 OFFSET 5) AS pql_count",
 			count: 2,
+		},
+		{
+			name:  "locking clause is kept",
+			stmt:  Select("id").From("items").Lock("FOR SHARE"),
+			query: "SELECT count(*) FROM (SELECT id FROM items FOR SHARE) AS pql_count",
+			count: 7,
 		},
 		{
 			name:  "distinct",

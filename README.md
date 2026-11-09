@@ -100,6 +100,14 @@ replacing earlier values for the same column. `SetValues(m)` copies and replaces
 all assignments. Passing nil or an empty map clears them; `Build` requires at
 least one assignment.
 
+`Lock` adds a row-locking clause after LIMIT and OFFSET; an empty string removes it:
+
+```go
+q := pql.Select("id").From("jobs").Where("state = $", "queued").Asc("id").Limit(1)
+q.Lock("FOR UPDATE SKIP LOCKED")
+// SELECT id FROM jobs WHERE (state = $1) ORDER BY id ASC LIMIT 1 FOR UPDATE SKIP LOCKED
+```
+
 `SelectStmt.Exists` tests whether the query returns any rows, and `Count` returns
 how many it returns. Both wrap the query without modifying it, so there is no
 need to replace its result columns or ORDER BY first: they preserve LIMIT and
