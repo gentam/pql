@@ -7,13 +7,16 @@ import (
 	"strings"
 )
 
-func numberPlaceholders(expr string, offset, numArgs int) (string, error) {
-	sql, count, err := rewriteSQL(expr, offset, true, "WHERE expression")
+// numberPlaceholders numbers the unnumbered placeholders of expr from offset+1
+// and checks that they match numArgs. clause names the expression's clause,
+// such as WHERE or SET, in error messages.
+func numberPlaceholders(expr, clause string, offset, numArgs int) (string, error) {
+	sql, count, err := rewriteSQL(expr, offset, true, clause+" expression")
 	if err != nil {
 		return "", err
 	}
 	if count != numArgs {
-		return "", fmt.Errorf("pql: WHERE placeholder count %d does not match argument count %d", count, numArgs)
+		return "", fmt.Errorf("pql: %s placeholder count %d does not match argument count %d", clause, count, numArgs)
 	}
 	return sql, nil
 }
@@ -85,10 +88,10 @@ func rewriteSQL(expr string, offset int, number bool, kind string) (string, int,
 				return "", 0, fmt.Errorf("pql: placeholders are not supported in %s; bind values in WHERE conditions", kind)
 			}
 			if i+1 < len(expr) && isSQLDigit(expr[i+1]) {
-				return "", 0, errors.New("pql: numbered placeholders are not supported in WHERE expressions; use $")
+				return "", 0, fmt.Errorf("pql: numbered placeholders are not supported in %ss; use $", kind)
 			}
 			if i+1 < len(expr) && isSQLIdentStart(expr[i+1]) {
-				return "", 0, errors.New("pql: invalid WHERE placeholder; use $")
+				return "", 0, fmt.Errorf("pql: invalid %s placeholder; use $", strings.TrimSuffix(kind, " expression"))
 			}
 			count++
 			b.WriteString(expr[start:i])

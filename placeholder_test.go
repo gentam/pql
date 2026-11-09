@@ -66,7 +66,7 @@ func TestNumberPlaceholders(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := numberPlaceholders(tt.expr, tt.offset, tt.args)
+			got, err := numberPlaceholders(tt.expr, "WHERE", tt.offset, tt.args)
 			if err != nil || got != tt.want {
 				t.Fatalf("numberPlaceholders() = (%q, %v), want (%q, nil)", got, err, tt.want)
 			}
@@ -109,7 +109,7 @@ func TestNumberPlaceholdersError(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := numberPlaceholders(tt.expr, 0, tt.args)
+			got, err := numberPlaceholders(tt.expr, "WHERE", 0, tt.args)
 			if got != "" || err == nil || err.Error() != tt.want {
 				t.Fatalf("numberPlaceholders() = (%q, %v), want (%q, %q)", got, err, "", tt.want)
 			}
@@ -207,7 +207,7 @@ func FuzzNumberPlaceholders(f *testing.F) {
 			}
 			expr := "$::text = " + token + " AND $::text = $::text"
 			want := "$4::text = " + token + " AND $5::text = $6::text"
-			got, err := numberPlaceholders(expr, 3, 3)
+			got, err := numberPlaceholders(expr, "WHERE", 3, 3)
 			if err != nil || got != want {
 				t.Fatalf("numberPlaceholders(%q) = (%q, %v), want (%q, nil)", expr, got, err, want)
 			}

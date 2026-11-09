@@ -180,7 +180,7 @@ func (w WhereExpr) build(b *strings.Builder, args []any) ([]any, error) {
 	if strings.TrimSpace(w.expr) == "" {
 		return nil, errors.New("pql: WHERE condition is required")
 	}
-	sql, err := numberPlaceholders(w.expr, len(args), len(w.args))
+	sql, err := numberPlaceholders(w.expr, "WHERE", len(args), len(w.args))
 	if err != nil {
 		return nil, err
 	}

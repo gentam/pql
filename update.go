@@ -4,7 +4,6 @@ import (
 	"errors"
 	"maps"
 	"slices"
-	"strconv"
 	"strings"
 )
 
@@ -74,9 +73,10 @@ func (s *UpdateStmt) BuildAt(offset int) (string, []any, error) {
 		if err := writeRawSQL(b, col, "UPDATE column"); err != nil {
 			return "", nil, err
 		}
-		args = append(args, s.m[col])
-		b.WriteString("=$")
-		b.WriteString(strconv.Itoa(len(args)))
+		b.WriteByte('=')
+		if args, err = writeValue(b, s.m[col], "SET", args); err != nil {
+			return "", nil, err
+		}
 	}
 
 	if len(s.where) != 0 {
@@ -97,7 +97,9 @@ func (s *UpdateStmt) BuildAt(offset int) (string, []any, error) {
 	return b.String(), finishArgs(args, offset), nil
 }
 
-// Set assigns val to col.
+// Set assigns val to col. val is a bound value, or an [SQLExpr] created with
+// [SQL] to assign an SQL expression such as now(). Map values passed to Values
+// and SetValues are handled the same way.
 // Empty or whitespace-only column names are rejected by [UpdateStmt.Build].
 func (s *UpdateStmt) Set(col string, val any) *UpdateStmt {
 	if s.m == nil {

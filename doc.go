@@ -13,7 +13,8 @@
 // with a newline so they do not consume subsequent SQL. These fragments cannot
 // take bound values: Build rejects $ placeholders in them, as well as
 // unterminated quoted text or block comments. Values supplied to Set, Values,
-// SetValues, keyset helpers, or [Where] placeholders are bound parameters.
+// SetValues, keyset helpers, or [Where] placeholders are bound parameters,
+// except that an [SQLExpr] created with [SQL] assigns an SQL expression.
 //
 // Write complete WHERE conditions in SQL with unnumbered $ placeholders.
 // Statement Where and WhereNot methods append a condition with AND and return

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
+	"strconv"
 	"strings"
 	"sync/atomic"
 
@@ -17,6 +19,53 @@ import (
 // It is a shorthand for map literals; [InsertStmt.Values] and [UpdateStmt.Values]
 // also accept map[string]any and other types defined as map[string]any.
 type Map map[string]any
+
+// SQLExpr is an SQL expression assigned to a column by [InsertStmt.Set],
+// [UpdateStmt.Set], or their Values methods, in place of a bound value.
+// Create one with [SQL]. The zero value is invalid.
+type SQLExpr struct {
+	expr string
+	args []any
+}
+
+// SQL creates an expression from trusted SQL and bound arguments, for use as
+// a value assigned by INSERT or UPDATE:
+//
+//	Update("items").Set("updated_at", SQL("now()"))
+//	Update("items").Set("views", SQL("views + $", n))
+//	Insert("items").Set("due_date", SQL("$::date", "2026-01-31"))
+//	Insert("items").Set("id", SQL("DEFAULT"))
+//
+// The expression is written verbatim, without parentheses. Placeholders follow
+// the rules of [Where]: write unnumbered $ placeholders, one per argument.
+// PostgreSQL infers a parameter's type from its context; cast parameters whose
+// type it cannot infer, such as in SQL("$::integer * $", a, b).
+// Empty expressions and placeholder errors are reported when the statement is
+// built. The argument list is copied; bound values are not deep-copied.
+func SQL(expr string, args ...any) SQLExpr {
+	return SQLExpr{expr: expr, args: slices.Clone(args)}
+}
+
+// writeValue writes the value assigned to a column: an [SQLExpr], or a
+// placeholder for a bound value. clause names the clause in error messages.
+func writeValue(b *strings.Builder, value any, clause string, args []any) ([]any, error) {
+	e, ok := value.(SQLExpr)
+	if !ok {
+		args = append(args, value)
+		b.WriteByte('$')
+		b.WriteString(strconv.Itoa(len(args)))
+		return args, nil
+	}
+	if strings.TrimSpace(e.expr) == "" {
+		return nil, fmt.Errorf("pql: %s expression is required", clause)
+	}
+	sql, err := numberPlaceholders(e.expr, clause, len(args), len(e.args))
+	if err != nil {
+		return nil, err
+	}
+	b.WriteString(sql)
+	return append(args, e.args...), nil
+}
 
 // Builder builds SQL and its positional arguments.
 type Builder interface {

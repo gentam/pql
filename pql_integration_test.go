@@ -241,6 +241,42 @@ func TestSelectLockPostgres(t *testing.T) {
 	}
 }
 
+func TestSQLExprPostgres(t *testing.T) {
+	t.Parallel()
+	url := os.Getenv("PQL_TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("set PQL_TEST_DATABASE_URL to test SQL expressions against PostgreSQL")
+	}
+	ctx := t.Context()
+	conn, err := pgx.Connect(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conn.Close(context.Background()) })
+	if _, err := conn.Exec(ctx, `CREATE TEMP TABLE pql_sql_expr (
+		id serial PRIMARY KEY, n integer NOT NULL, due date, flag boolean NOT NULL DEFAULT false, touched timestamptz)`); err != nil {
+		t.Fatal(err)
+	}
+	var id int
+	err = Insert("pql_sql_expr").Values(Map{"id": SQL("DEFAULT"), "n": SQL("$::integer * $", 6, 7), "due": SQL("$::text::date", "2026-01-31")}).
+		Returning("id").QueryRow(ctx, conn).Scan(&id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tag, err := Update("pql_sql_expr").Set("n", SQL("n + $", 1)).Set("flag", SQL("NOT flag")).Set("touched", SQL("now()")).
+		Where("id = $", id).Exec(ctx, conn)
+	if err != nil || tag.RowsAffected() != 1 {
+		t.Fatalf("Exec() = (%v, %v), want 1 row", tag, err)
+	}
+	var n int
+	var due string
+	var flag, touched bool
+	err = conn.QueryRow(ctx, "SELECT n, due::text, flag, touched IS NOT NULL FROM pql_sql_expr WHERE id = $1", id).Scan(&n, &due, &flag, &touched)
+	if err != nil || n != 43 || due != "2026-01-31" || !flag || !touched {
+		t.Fatalf("row = (%d, %q, %t, %t), error %v; want (43, 2026-01-31, true, true)", n, due, flag, touched, err)
+	}
+}
+
 func TestStatementExecutionPostgres(t *testing.T) {
 	t.Parallel()
 	url := os.Getenv("PQL_TEST_DATABASE_URL")

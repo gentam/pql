@@ -100,6 +100,18 @@ replacing earlier values for the same column. `SetValues(m)` copies and replaces
 all assignments. Passing nil or an empty map clears them; `Build` requires at
 least one assignment.
 
+To assign an SQL expression instead of a bound value, wrap it with `pql.SQL`.
+Its unnumbered `$` placeholders are numbered like those of WHERE conditions:
+
+```go
+pql.Update("items").
+	Set("title", title).
+	Set("views", pql.SQL("views + $", 1)).
+	Set("updated_at", pql.SQL("now()")).
+	Where("id = $", id)
+// UPDATE items SET title=$1,updated_at=now(),views=views + $2 WHERE (id = $3)
+```
+
 `Lock` adds a row-locking clause after LIMIT and OFFSET; an empty string removes it:
 
 ```go

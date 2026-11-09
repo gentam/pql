@@ -4,7 +4,6 @@ import (
 	"errors"
 	"maps"
 	"slices"
-	"strconv"
 	"strings"
 )
 
@@ -71,9 +70,9 @@ func (s *InsertStmt) BuildAt(offset int) (string, []any, error) {
 		if i != 0 {
 			b.WriteByte(',')
 		}
-		args = append(args, s.m[col])
-		b.WriteByte('$')
-		b.WriteString(strconv.Itoa(len(args)))
+		if args, err = writeValue(b, s.m[col], "VALUES", args); err != nil {
+			return "", nil, err
+		}
 	}
 	b.WriteByte(')')
 
@@ -86,7 +85,9 @@ func (s *InsertStmt) BuildAt(offset int) (string, []any, error) {
 	return b.String(), finishArgs(args, offset), nil
 }
 
-// Set assigns val to col.
+// Set assigns val to col. val is a bound value, or an [SQLExpr] created with
+// [SQL] to assign an SQL expression such as now(). Map values passed to Values
+// and SetValues are handled the same way.
 // Empty or whitespace-only column names are rejected by [InsertStmt.Build].
 func (s *InsertStmt) Set(col string, val any) *InsertStmt {
 	if s.m == nil {

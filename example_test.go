@@ -687,3 +687,20 @@ func ExampleSelectStmt_BuildAt() {
 	// SELECT id FROM items WHERE owner = $1 AND id IN (SELECT item_id FROM events WHERE (kind = $2))
 	// [alice viewed]
 }
+
+func ExampleSQL() {
+	query, args, err := pql.Update("items").
+		Set("title", "Draft").
+		Set("views", pql.SQL("views + $", 1)).
+		Set("updated_at", pql.SQL("now()")).
+		Where("id = $", 7).
+		Build()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(query)
+	fmt.Println(args)
+	// Output:
+	// UPDATE items SET title=$1,updated_at=now(),views=views + $2 WHERE (id = $3)
+	// [Draft 1 7]
+}
