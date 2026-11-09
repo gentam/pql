@@ -66,22 +66,57 @@ func (s *SelectStmt) QueryRow(ctx context.Context, conn ...Querier) pgx.Row {
 }
 
 // Exists reports whether the SELECT statement returns any rows.
-// It executes SELECT EXISTS (...) without modifying the statement and preserves
-// its LIMIT/OFFSET settings. See [Querier] for connection selection.
+// It executes SELECT EXISTS (...) without modifying the statement.
+// PostgreSQL does not evaluate the result expressions of an EXISTS subquery,
+// so there is no need to replace them; an aggregate expression, however, still
+// makes the statement return one row. LIMIT and OFFSET are preserved; ORDER BY
+// is omitted unless one of them is set, because it cannot change the result.
+// See [Querier] for connection selection.
 func (s *SelectStmt) Exists(ctx context.Context, conn ...Querier) (bool, error) {
-	query, args, err := s.Build()
-	if err != nil {
-		return false, err
-	}
-	db, err := resolveQuerier(conn)
-	if err != nil {
-		return false, err
-	}
 	var exists bool
-	if err := db.QueryRow(ctx, "SELECT EXISTS ("+query+")", args...).Scan(&exists); err != nil {
+	if err := s.queryScalar(ctx, conn, "SELECT EXISTS (", ")", &exists); err != nil {
 		return false, err
 	}
 	return exists, nil
+}
+
+// Count reports the number of rows the SELECT statement returns.
+// It executes SELECT count(*) FROM (...) without modifying the statement, so
+// DISTINCT, aggregate, and set-returning result expressions are respected.
+// LIMIT and OFFSET are preserved; ORDER BY is omitted unless one of them is set,
+// because it cannot change the count. Use it to count the rows of a filtered
+// statement before adding pagination. See [Querier] for connection selection.
+func (s *SelectStmt) Count(ctx context.Context, conn ...Querier) (int64, error) {
+	var count int64
+	if err := s.queryScalar(ctx, conn, "SELECT count(*) FROM (", ") AS pql_count", &count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// queryScalar wraps the statement in prefix and suffix and scans one value.
+func (s *SelectStmt) queryScalar(ctx context.Context, conn []Querier, prefix, suffix string, dest any) error {
+	stmt := s
+	if len(s.order) != 0 && !s.limitSet && !s.offsetSet {
+		// Omitted terms are still validated, as Build would.
+		for _, order := range s.order {
+			if _, err := order.sql(); err != nil {
+				return err
+			}
+		}
+		unordered := *s
+		unordered.order = nil
+		stmt = &unordered
+	}
+	query, args, err := stmt.Build()
+	if err != nil {
+		return err
+	}
+	db, err := resolveQuerier(conn)
+	if err != nil {
+		return err
+	}
+	return db.QueryRow(ctx, prefix+query+suffix, args...).Scan(dest)
 }
 
 // Exec executes the UPDATE statement and returns its command tag.

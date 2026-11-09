@@ -166,6 +166,36 @@ func TestTrailingLineCommentsPostgres(t *testing.T) {
 	})
 }
 
+func TestSelectCountPostgres(t *testing.T) {
+	t.Parallel()
+	url := os.Getenv("PQL_TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("set PQL_TEST_DATABASE_URL to test Count against PostgreSQL")
+	}
+	ctx := t.Context()
+	db, err := pgx.Connect(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close(context.Background()) })
+	for _, tt := range []struct {
+		stmt *SelectStmt
+		want int64
+	}{
+		{Select("n").From("generate_series(1, 10) AS g(n)").Where("n > $", 3).Desc("n"), 7},
+		{Select("n").From("generate_series(1, 10) AS g(n)").Desc("n").Limit(4).Offset(8), 2},
+		{Select("DISTINCT n % 3").From("generate_series(1, 10) AS g(n)"), 3},
+		{Select("count(*)").From("generate_series(1, 10) AS g(n)").Where("false"), 1},
+		{Select("a.n, b.n").From("generate_series(1, 2) AS a(n), generate_series(1, 3) AS b(n)"), 6},
+	} {
+		count, err := tt.stmt.Count(ctx, db)
+		if err != nil || count != tt.want {
+			query, _, _ := tt.stmt.Build()
+			t.Errorf("Count() for %q = (%d, %v), want (%d, nil)", query, count, err, tt.want)
+		}
+	}
+}
+
 func TestStatementExecutionPostgres(t *testing.T) {
 	t.Parallel()
 	url := os.Getenv("PQL_TEST_DATABASE_URL")

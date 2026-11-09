@@ -39,6 +39,9 @@ func TestExecutionWithoutDefaultPool(t *testing.T) {
 	if exists, err := Select("1").Exists(t.Context()); exists || err != errDefaultPoolNotSet {
 		t.Fatalf("Exists() = (%v, %v), want (false, %v)", exists, err, errDefaultPoolNotSet)
 	}
+	if count, err := Select("1").Count(t.Context()); count != 0 || err != errDefaultPoolNotSet {
+		t.Fatalf("Count() = (%v, %v), want (0, %v)", count, err, errDefaultPoolNotSet)
+	}
 }
 
 func TestStatementExecution(t *testing.T) {
@@ -352,6 +355,19 @@ func TestSelectExists(t *testing.T) {
 			row:   true,
 		},
 		{
+			name:  "ordering without limit or offset is omitted",
+			stmt:  Select("id").From("items").Where("a=$", 1).Desc("id"),
+			query: "SELECT EXISTS (SELECT id FROM items WHERE (a=$1))",
+			args:  []any{1},
+			row:   true,
+		},
+		{
+			name:  "ordering with offset only",
+			stmt:  Select("id").From("items").Desc("id").Offset(5),
+			query: "SELECT EXISTS (SELECT id FROM items ORDER BY id DESC OFFSET 5)",
+			row:   true,
+		},
+		{
 			name:  "zero limit and offset",
 			stmt:  Select("1").From("items").Limit(0).Offset(0),
 			query: "SELECT EXISTS (SELECT 1 FROM items LIMIT 0 OFFSET 0)",
@@ -422,6 +438,82 @@ func TestSelectExists(t *testing.T) {
 	}
 }
 
+func TestSelectCount(t *testing.T) {
+	t.Parallel()
+	queryErr := errors.New("query failed")
+	for _, tt := range []struct {
+		name   string
+		stmt   *SelectStmt
+		query  string
+		args   []any
+		count  int64
+		rowErr error
+	}{
+		{
+			name:  "filtered",
+			stmt:  Select("id", "title").From("items").Where("status=$", "OPEN"),
+			query: "SELECT count(*) FROM (SELECT id,title FROM items WHERE (status=$1)) AS pql_count",
+			args:  []any{"OPEN"},
+			count: 3,
+		},
+		{
+			name:  "ordering without limit or offset is omitted",
+			stmt:  Select("id").From("items").Desc("id"),
+			query: "SELECT count(*) FROM (SELECT id FROM items) AS pql_count",
+			count: 7,
+		},
+		{
+			name:  "ordering limit and offset",
+			stmt:  Select("id").From("items").Desc("id").Limit(10).Offset(5),
+			query: "SELECT count(*) FROM (SELECT id FROM items ORDER BY id DESC LIMIT 10 OFFSET 5) AS pql_count",
+			count: 2,
+		},
+		{
+			name:  "distinct",
+			stmt:  Select("DISTINCT owner_id").From("items"),
+			query: "SELECT count(*) FROM (SELECT DISTINCT owner_id FROM items) AS pql_count",
+			count: 4,
+		},
+		{
+			name:   "query error from scan",
+			stmt:   Select("1"),
+			query:  "SELECT count(*) FROM (SELECT 1) AS pql_count",
+			count:  1,
+			rowErr: queryErr,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := t.Context()
+			conn := stubQuerier{queryRow: func(gotCtx context.Context, query string, args ...any) pgx.Row {
+				if gotCtx != ctx {
+					t.Error("QueryRow did not receive the supplied context")
+				}
+				if query != tt.query || !reflect.DeepEqual(args, tt.args) {
+					t.Errorf("QueryRow got (%q, %#v), want (%q, %#v)", query, args, tt.query, tt.args)
+				}
+				return scanRow(func(dest ...any) error {
+					*dest[0].(*int64) = tt.count
+					return tt.rowErr
+				})
+			}}
+			before, beforeArgs, err := tt.stmt.Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			count, err := tt.stmt.Count(ctx, conn)
+			want := tt.count
+			if tt.rowErr != nil {
+				want = 0
+			}
+			if count != want || !errors.Is(err, tt.rowErr) {
+				t.Errorf("Count() = (%v, %v), want (%v, %v)", count, err, want, tt.rowErr)
+			}
+			assertBuild(t, tt.stmt, buildResult{query: before, args: beforeArgs})
+		})
+	}
+}
+
 func TestSelectExistsOverridesDefaultPool(t *testing.T) {
 	// Keep serial because SetDefaultPool changes the package-level pool.
 	SetDefaultPool(&pgxpool.Pool{})
@@ -458,6 +550,16 @@ func TestSelectExistsValidation(t *testing.T) {
 			err:  "pql: LIMIT must not be negative",
 		},
 		{
+			name: "invalid omitted order",
+			stmt: Select().From("t").Asc(" "),
+			err:  "pql: ORDER BY expression is required",
+		},
+		{
+			name: "placeholder in omitted order",
+			stmt: Select().From("t").Asc("a <-> $"),
+			err:  "pql: placeholders are not supported in ORDER BY expression; bind values in WHERE conditions",
+		},
+		{
 			name: "negative offset",
 			stmt: Select().From("t").Offset(-1),
 			err:  "pql: OFFSET must not be negative",
@@ -485,6 +587,10 @@ func TestSelectExistsValidation(t *testing.T) {
 			exists, err := tt.stmt.Exists(t.Context(), tt.conn...)
 			if exists || err == nil || err.Error() != tt.err {
 				t.Fatalf("Exists() = (%v, %v), want (false, %q)", exists, err, tt.err)
+			}
+			count, err := tt.stmt.Count(t.Context(), tt.conn...)
+			if count != 0 || err == nil || err.Error() != tt.err {
+				t.Fatalf("Count() = (%v, %v), want (0, %q)", count, err, tt.err)
 			}
 		})
 	}

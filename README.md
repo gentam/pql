@@ -55,6 +55,7 @@ at startup; it is safe to call while statements are executing.
 | `QueryRow` | Select, Insert, Update, Delete | `pgx.Row` |
 | `Exec` | Insert, Update, Delete | `(pgconn.CommandTag, error)` |
 | `Exists` | Select | `(bool, error)` |
+| `Count` | Select | `(int64, error)` |
 
 Use `Returning` on writes to specify result columns. `QueryRow` reads the first
 row and reports all errors through `Scan`, including build errors and
@@ -99,8 +100,11 @@ replacing earlier values for the same column. `SetValues(m)` copies and replaces
 all assignments. Passing nil or an empty map clears them; `Build` requires at
 least one assignment.
 
-`SelectStmt.Exists` tests whether the query returns any rows, preserving its
-LIMIT/OFFSET. Execution methods validate the statement before contacting the database.
+`SelectStmt.Exists` tests whether the query returns any rows, and `Count` returns
+how many it returns. Both wrap the query without modifying it, so there is no
+need to replace its result columns or ORDER BY first: they preserve LIMIT and
+OFFSET, and omit ORDER BY when neither is set. Execution methods validate the
+statement before contacting the database.
 
 ## Compose conditions
 
