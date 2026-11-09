@@ -419,7 +419,7 @@ func ExampleUpdateStmt_SetWhere() {
 	base := pql.Update("users").Set("active", true).Where("status = $", "OPEN")
 	for _, stmt := range []*pql.UpdateStmt{
 		base.Clone().SetWhere(pql.Where("status = $", "ARCHIVED"), pql.Where("tenant_id = $", 42)),
-		base.Clone().SetWhere(),
+		base.Clone().SetWhere().All(),
 		base,
 	} {
 		query, args, err := stmt.Build()
@@ -442,7 +442,7 @@ func ExampleDeleteStmt_SetWhere() {
 	base := pql.Delete("users").Where("status = $", "OPEN")
 	for _, stmt := range []*pql.DeleteStmt{
 		base.Clone().SetWhere(pql.Where("status = $", "ARCHIVED"), pql.Where("tenant_id = $", 42)),
-		base.Clone().SetWhere(),
+		base.Clone().SetWhere().All(),
 		base,
 	} {
 		query, args, err := stmt.Build()

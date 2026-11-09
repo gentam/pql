@@ -14,6 +14,7 @@ type UpdateStmt struct {
 	m         Map
 	where     []WhereExpr
 	returning []string
+	all       bool
 }
 
 // Update creates an UPDATE statement for table.
@@ -36,8 +37,9 @@ func (s *UpdateStmt) Clone() *UpdateStmt {
 }
 
 // Build returns SQL, positional arguments, and a validation error.
-// The table must not be empty or whitespace-only, and at least one column
-// assignment is required.
+// The table must not be empty or whitespace-only, at least one column
+// assignment is required, and a WHERE condition is required unless
+// [UpdateStmt.All] was called.
 func (s *UpdateStmt) Build() (string, []any, error) {
 	if len(s.m) == 0 && strings.TrimSpace(s.table) != "" {
 		return "", nil, errors.New("pql: UPDATE values are required")
@@ -70,6 +72,8 @@ func (s *UpdateStmt) Build() (string, []any, error) {
 		if err != nil {
 			return "", nil, err
 		}
+	} else if !s.all {
+		return "", nil, errors.New("pql: UPDATE requires a WHERE condition; call All to update every row")
 	}
 
 	if len(s.returning) != 0 {
@@ -129,7 +133,8 @@ func (s *UpdateStmt) WhereNot(expr string, args ...any) *UpdateStmt {
 
 // SetWhere replaces all WHERE conditions with exprs, combined with AND.
 // The input slice is copied; immutable expressions and bound values are shared.
-// Calling it without arguments removes the WHERE clause.
+// Calling it without arguments removes the WHERE clause; [UpdateStmt.Build] then
+// reports an error unless [UpdateStmt.All] was called.
 // A zero-valued expression is rejected by [UpdateStmt.Build].
 // SetWhere modifies and returns the statement.
 func (s *UpdateStmt) SetWhere(exprs ...WhereExpr) *UpdateStmt {
@@ -144,6 +149,15 @@ func (s *UpdateStmt) SetWhere(exprs ...WhereExpr) *UpdateStmt {
 // A zero-valued expression is rejected by [UpdateStmt.Build].
 func (s *UpdateStmt) Apply(exprs ...WhereExpr) *UpdateStmt {
 	s.where = append(s.where, exprs...)
+	return s
+}
+
+// All allows the statement to be built without WHERE conditions, so that it
+// affects every row of the table. Without it, [UpdateStmt.Build] reports an error
+// when no condition has been added, guarding against a forgotten filter.
+// Conditions added before or after All still apply.
+func (s *UpdateStmt) All() *UpdateStmt {
+	s.all = true
 	return s
 }
 

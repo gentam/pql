@@ -325,7 +325,7 @@ func TestStatementApplyMultiple(t *testing.T) {
 		{
 			name: "update",
 			setup: func() (Builder, func(...WhereExpr) Builder) {
-				s := Update("t").Set("x", 0)
+				s := Update("t").Set("x", 0).All()
 				return s, func(exprs ...WhereExpr) Builder { return s.Apply(exprs...) }
 			},
 			base: buildResult{query: "UPDATE t SET x=$1", args: []any{0}},
@@ -334,7 +334,7 @@ func TestStatementApplyMultiple(t *testing.T) {
 		{
 			name: "delete",
 			setup: func() (Builder, func(...WhereExpr) Builder) {
-				s := Delete("t")
+				s := Delete("t").All()
 				return s, func(exprs ...WhereExpr) Builder { return s.Apply(exprs...) }
 			},
 			base: buildResult{query: "DELETE FROM t"},

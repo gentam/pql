@@ -22,6 +22,8 @@
 // to a statement with AND; with no arguments it leaves conditions unchanged.
 // SetWhere replaces all WHERE conditions, combining
 // its inputs with AND; calling it without arguments removes the WHERE clause.
+// UPDATE and DELETE statements without conditions are build errors unless
+// their All method is called, so a forgotten filter cannot affect every row.
 // WhereExpr values can be copied and reused without cloning. Their zero value
 // is invalid and is rejected when the statement is built.
 //

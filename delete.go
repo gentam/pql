@@ -1,6 +1,7 @@
 package pql
 
 import (
+	"errors"
 	"slices"
 	"strings"
 )
@@ -10,6 +11,7 @@ type DeleteStmt struct {
 	table     string
 	where     []WhereExpr
 	returning []string
+	all       bool
 }
 
 // Delete creates a DELETE statement for table.
@@ -31,7 +33,8 @@ func (s *DeleteStmt) Clone() *DeleteStmt {
 }
 
 // Build returns SQL, positional arguments, and a validation error.
-// The table must not be empty or whitespace-only.
+// The table must not be empty or whitespace-only, and a WHERE condition is
+// required unless [DeleteStmt.All] was called.
 func (s *DeleteStmt) Build() (string, []any, error) {
 	b := &strings.Builder{}
 	b.WriteString("DELETE FROM ")
@@ -46,6 +49,8 @@ func (s *DeleteStmt) Build() (string, []any, error) {
 		if err != nil {
 			return "", nil, err
 		}
+	} else if !s.all {
+		return "", nil, errors.New("pql: DELETE requires a WHERE condition; call All to delete every row")
 	}
 
 	if len(s.returning) != 0 {
@@ -72,7 +77,8 @@ func (s *DeleteStmt) WhereNot(expr string, args ...any) *DeleteStmt {
 
 // SetWhere replaces all WHERE conditions with exprs, combined with AND.
 // The input slice is copied; immutable expressions and bound values are shared.
-// Calling it without arguments removes the WHERE clause.
+// Calling it without arguments removes the WHERE clause; [DeleteStmt.Build] then
+// reports an error unless [DeleteStmt.All] was called.
 // A zero-valued expression is rejected by [DeleteStmt.Build].
 // SetWhere modifies and returns the statement.
 func (s *DeleteStmt) SetWhere(exprs ...WhereExpr) *DeleteStmt {
@@ -87,6 +93,15 @@ func (s *DeleteStmt) SetWhere(exprs ...WhereExpr) *DeleteStmt {
 // A zero-valued expression is rejected by [DeleteStmt.Build].
 func (s *DeleteStmt) Apply(exprs ...WhereExpr) *DeleteStmt {
 	s.where = append(s.where, exprs...)
+	return s
+}
+
+// All allows the statement to be built without WHERE conditions, so that it
+// affects every row of the table. Without it, [DeleteStmt.Build] reports an error
+// when no condition has been added, guarding against a forgotten filter.
+// Conditions added before or after All still apply.
+func (s *DeleteStmt) All() *DeleteStmt {
+	s.all = true
 	return s
 }
 

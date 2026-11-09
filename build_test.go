@@ -319,7 +319,7 @@ func TestBuildEmptyColumnExpressions(t *testing.T) {
 		{"update set", func(col string) Builder { return Update("t").Set("a", 1).Set(col, 2) }, "pql: UPDATE column is required"},
 		{"update values", func(col string) Builder { return Update("t").Values(Map{"a": 1, col: 2}) }, "pql: UPDATE column is required"},
 		{"insert returning", func(col string) Builder { return Insert("t").Set("a", 1).Returning("a", col) }, "pql: RETURNING expression is required"},
-		{"update returning", func(col string) Builder { return Update("t").Set("a", 1).Returning("a").Returning(col) }, "pql: RETURNING expression is required"},
+		{"update returning", func(col string) Builder { return Update("t").Set("a", 1).All().Returning("a").Returning(col) }, "pql: RETURNING expression is required"},
 		{"delete returning", func(col string) Builder { return Delete("t").Apply(Where("a=$", 1)).Returning("a", col) }, "pql: RETURNING expression is required"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -342,11 +342,11 @@ func TestBuildEmptyReturningLists(t *testing.T) {
 		want buildResult
 	}{
 		{"insert", Insert("t").Set("a", 1).Returning().Returning([]string{}...), buildResult{query: "INSERT INTO t (a) VALUES ($1)", args: []any{1}}},
-		{"update", Update("t").Set("a", 1).Returning().Returning([]string{}...), buildResult{query: "UPDATE t SET a=$1", args: []any{1}}},
-		{"delete", Delete("t").Returning().Returning([]string{}...), buildResult{query: "DELETE FROM t"}},
+		{"update", Update("t").Set("a", 1).All().Returning().Returning([]string{}...), buildResult{query: "UPDATE t SET a=$1", args: []any{1}}},
+		{"delete", Delete("t").All().Returning().Returning([]string{}...), buildResult{query: "DELETE FROM t"}},
 		{"insert retains returning", Insert("t").Set("a", 1).Returning("a").Returning(), buildResult{query: "INSERT INTO t (a) VALUES ($1) RETURNING a", args: []any{1}}},
-		{"update retains returning", Update("t").Set("a", 1).Returning("a").Returning(), buildResult{query: "UPDATE t SET a=$1 RETURNING a", args: []any{1}}},
-		{"delete retains returning", Delete("t").Returning("a").Returning(), buildResult{query: "DELETE FROM t RETURNING a"}},
+		{"update retains returning", Update("t").Set("a", 1).All().Returning("a").Returning(), buildResult{query: "UPDATE t SET a=$1 RETURNING a", args: []any{1}}},
+		{"delete retains returning", Delete("t").All().Returning("a").Returning(), buildResult{query: "DELETE FROM t RETURNING a"}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()

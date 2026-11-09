@@ -211,7 +211,7 @@ func TestStatementExecutionPostgres(t *testing.T) {
 		},
 		{
 			name:      "update",
-			build:     func() queryStatement { return Update("pql_execution").Set("n", 7).Returning("id") },
+			build:     func() queryStatement { return Update("pql_execution").Set("n", 7).All().Returning("id") },
 			ids:       []int{1, 2},
 			tag:       "UPDATE 2",
 			remaining: 2,
@@ -219,7 +219,7 @@ func TestStatementExecutionPostgres(t *testing.T) {
 		},
 		{
 			name:  "delete",
-			build: func() queryStatement { return Delete("pql_execution").Returning("id") },
+			build: func() queryStatement { return Delete("pql_execution").All().Returning("id") },
 			ids:   []int{1, 2},
 			tag:   "DELETE 2",
 		},

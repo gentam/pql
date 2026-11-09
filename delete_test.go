@@ -9,7 +9,9 @@ func TestDeleteBuild(t *testing.T) {
 		build func() *DeleteStmt
 		want  buildResult
 	}{
-		{name: "table only", build: func() *DeleteStmt { return Delete("t") }, want: buildResult{query: "DELETE FROM t"}},
+		{name: "table only", build: func() *DeleteStmt { return Delete("t") }, want: buildResult{err: "pql: DELETE requires a WHERE condition; call All to delete every row"}},
+		{name: "all", build: func() *DeleteStmt { return Delete("t").All() }, want: buildResult{query: "DELETE FROM t"}},
+		{name: "all with where", build: func() *DeleteStmt { return Delete("t").All().Where("id=$", 1) }, want: buildResult{query: "DELETE FROM t WHERE (id=$1)", args: []any{1}}},
 		{
 			name: "where and returning",
 			build: func() *DeleteStmt {
@@ -92,7 +94,8 @@ func TestDeleteSetWhere(t *testing.T) {
 	assertBuild(t, stmt.Clone(), want)
 	assertBuild(t, base, buildResult{query: "DELETE FROM t WHERE (old=$1) RETURNING id", args: []any{99}})
 
-	cleared := buildResult{query: "DELETE FROM t RETURNING id", args: nil}
+	cleared := buildResult{err: "pql: DELETE requires a WHERE condition; call All to delete every row"}
+	assertBuild(t, stmt.Clone().SetWhere().All(), buildResult{query: "DELETE FROM t RETURNING id"})
 	assertBuild(t, stmt.SetWhere(), cleared)
 	assertBuild(t, stmt.Where("old").SetWhere([]WhereExpr(nil)...), cleared)
 	assertBuild(t, stmt.Where("old").SetWhere([]WhereExpr{}...), cleared)

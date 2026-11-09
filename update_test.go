@@ -12,38 +12,38 @@ func TestUpdateBuild(t *testing.T) {
 	}{
 		{
 			name:  "set",
-			build: func() *UpdateStmt { return Update("t").Set("c1", 1).Set("c2", 2) },
+			build: func() *UpdateStmt { return Update("t").All().Set("c1", 1).Set("c2", 2) },
 			want:  buildResult{query: "UPDATE t SET c1=$1,c2=$2", args: []any{1, 2}},
 		},
 		{
 			name:  "values",
-			build: func() *UpdateStmt { return Update("t").Values(Map{"c1": 1, "c2": 2}) },
+			build: func() *UpdateStmt { return Update("t").All().Values(Map{"c1": 1, "c2": 2}) },
 			want:  buildResult{query: "UPDATE t SET c1=$1,c2=$2", args: []any{1, 2}},
 		},
 		{
 			name:  "plain map",
-			build: func() *UpdateStmt { return Update("t").Values(map[string]any{"c1": 1, "c2": 2}) },
+			build: func() *UpdateStmt { return Update("t").All().Values(map[string]any{"c1": 1, "c2": 2}) },
 			want:  buildResult{query: "UPDATE t SET c1=$1,c2=$2", args: []any{1, 2}},
 		},
 		{
 			name:  "defined map",
-			build: func() *UpdateStmt { return Update("t").Values(fields{"c1": 1, "c2": 2}) },
+			build: func() *UpdateStmt { return Update("t").All().Values(fields{"c1": 1, "c2": 2}) },
 			want:  buildResult{query: "UPDATE t SET c1=$1,c2=$2", args: []any{1, 2}},
 		},
 		{
 			name:  "set values plain map",
-			build: func() *UpdateStmt { return Update("t").SetValues(map[string]any{"c1": 1, "c2": 2}) },
+			build: func() *UpdateStmt { return Update("t").All().SetValues(map[string]any{"c1": 1, "c2": 2}) },
 			want:  buildResult{query: "UPDATE t SET c1=$1,c2=$2", args: []any{1, 2}},
 		},
 		{
 			name:  "set values defined map",
-			build: func() *UpdateStmt { return Update("t").SetValues(fields{"c1": 1, "c2": 2}) },
+			build: func() *UpdateStmt { return Update("t").All().SetValues(fields{"c1": 1, "c2": 2}) },
 			want:  buildResult{query: "UPDATE t SET c1=$1,c2=$2", args: []any{1, 2}},
 		},
 		{
 			name: "values merge with existing values",
 			build: func() *UpdateStmt {
-				return Update("t").Set("c1", 1).Set("c2", 2).
+				return Update("t").All().Set("c1", 1).Set("c2", 2).
 					Values(Map{"c2": 20, "c3": 3})
 			},
 			want: buildResult{
@@ -53,8 +53,23 @@ func TestUpdateBuild(t *testing.T) {
 		},
 		{
 			name:  "set after nil values",
-			build: func() *UpdateStmt { return Update("t").Values(nil).Set("c", 1) },
+			build: func() *UpdateStmt { return Update("t").All().Values(nil).Set("c", 1) },
 			want:  buildResult{query: "UPDATE t SET c=$1", args: []any{1}},
+		},
+		{
+			name:  "missing where",
+			build: func() *UpdateStmt { return Update("t").Set("c", 1) },
+			want:  buildResult{err: "pql: UPDATE requires a WHERE condition; call All to update every row"},
+		},
+		{
+			name:  "missing where after set where",
+			build: func() *UpdateStmt { return Update("t").Set("c", 1).Where("id=$", 1).SetWhere() },
+			want:  buildResult{err: "pql: UPDATE requires a WHERE condition; call All to update every row"},
+		},
+		{
+			name:  "all with where",
+			build: func() *UpdateStmt { return Update("t").Set("c", 1).All().Where("id=$", 2) },
+			want:  buildResult{query: "UPDATE t SET c=$1 WHERE (id=$2)", args: []any{1, 2}},
 		},
 		{
 			name:  "zero applied clause",
@@ -99,7 +114,7 @@ func TestUpdateBuild(t *testing.T) {
 func TestUpdateValuesClone(t *testing.T) {
 	t.Parallel()
 	values := Map{"c": 1}
-	stmt := Update("t").Values(values)
+	stmt := Update("t").All().Values(values)
 
 	values["c"] = 2
 	stmt.Set("d", 3)
@@ -164,7 +179,7 @@ func TestUpdateSetValuesValidation(t *testing.T) {
 
 func TestUpdateSetReturning(t *testing.T) {
 	t.Parallel()
-	base := Update("t").Set("c", 1).Returning("old")
+	base := Update("t").Set("c", 1).All().Returning("old")
 	cols := []string{"c", "c + 1 AS next"}
 	stmt := base.Clone()
 	if stmt.SetReturning(cols...) != stmt {
@@ -203,7 +218,8 @@ func TestUpdateSetWhere(t *testing.T) {
 	assertBuild(t, stmt.Clone(), want)
 	assertBuild(t, base, buildResult{query: "UPDATE t SET active=$1 WHERE (old=$2) RETURNING id", args: []any{true, 99}})
 
-	cleared := buildResult{query: "UPDATE t SET active=$1 RETURNING id", args: []any{true}}
+	cleared := buildResult{err: "pql: UPDATE requires a WHERE condition; call All to update every row"}
+	assertBuild(t, stmt.Clone().SetWhere().All(), buildResult{query: "UPDATE t SET active=$1 RETURNING id", args: []any{true}})
 	assertBuild(t, stmt.SetWhere(), cleared)
 	assertBuild(t, stmt.Where("old").SetWhere([]WhereExpr(nil)...), cleared)
 	assertBuild(t, stmt.Where("old").SetWhere([]WhereExpr{}...), cleared)

@@ -124,6 +124,13 @@ stmt := pql.Select("id").From("items").Apply(filter)
 Finish composing a condition before applying it. `SetWhere(exprs...)` replaces
 all conditions, and `SetWhere()` removes the WHERE clause.
 
+UPDATE and DELETE require at least one condition so that a forgotten filter
+cannot change every row. Call `All()` to build them without a WHERE clause:
+
+```go
+tag, err := pql.Delete("sessions").All().Exec(ctx, conn)
+```
+
 Empty SQL and zero-valued `WhereExpr` inputs are build errors. For optional
 filters, branch before adding them. A nil bound value represents SQL NULL;
 use `IS NULL` when testing for NULL.

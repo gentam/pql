@@ -40,7 +40,7 @@ func TestWriteStatementClone(t *testing.T) {
 		if absent.Clone() != nil {
 			t.Fatal("nil receiver clone must be nil")
 		}
-		source := &DeleteStmt{table: "t", where: make([]WhereExpr, 0, 4), returning: make([]string, 0, 4)}
+		source := &DeleteStmt{table: "t", where: make([]WhereExpr, 0, 4), returning: make([]string, 0, 4), all: true}
 		empty := source.Clone()
 		source.Where("tenant=$", 10).Returning("id")
 		assertBuild(t, empty, buildResult{query: "DELETE FROM t"})

@@ -147,7 +147,7 @@ func TestStatementExecutionValidation(t *testing.T) {
 		{"select blank from", Select("1").From(" \t "), "pql: FROM expression is required"},
 		{"insert empty column", Insert("t").Set("", 1), "pql: INSERT column is required"},
 		{"update empty column", Update("t").Set("", 1), "pql: UPDATE column is required"},
-		{"delete empty returning", Delete("t").Returning(""), "pql: RETURNING expression is required"},
+		{"delete empty returning", Delete("t").All().Returning(""), "pql: RETURNING expression is required"},
 		{"select zero composition", Select().Apply(And(Where("true"), WhereExpr{})), "pql: WHERE condition is required"},
 		{"update zero composition", Update("t").Set("x", 0).Apply(Not(WhereExpr{})), "pql: WHERE condition is required"},
 		{"delete zero composition", Delete("t").Apply(Or(WhereExpr{})), "pql: WHERE condition is required"},
@@ -203,7 +203,7 @@ func executionStatements() []executionCase {
 	return []executionCase{
 		{"select", Select("n").From("t").Apply(Where("n=$", 7)), "SELECT n FROM t WHERE (n=$1)", ""},
 		{"insert", Insert("t").Set("n", 7).Returning("n"), "INSERT INTO t (n) VALUES ($1) RETURNING n", "INSERT 0 1"},
-		{"update", Update("t").Set("n", 7).Returning("n"), "UPDATE t SET n=$1 RETURNING n", "UPDATE 2"},
+		{"update", Update("t").Set("n", 7).All().Returning("n"), "UPDATE t SET n=$1 RETURNING n", "UPDATE 2"},
 		{"delete", Delete("t").Apply(Where("n=$", 7)).Returning("n"), "DELETE FROM t WHERE (n=$1) RETURNING n", "DELETE 2"},
 	}
 }
