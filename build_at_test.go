@@ -24,7 +24,7 @@ func TestStatementBuildAt(t *testing.T) {
 			build:  Select("id").From("t").Where("a=$", 1).Apply(After(orders, "c", 2)).Limit(5).BuildAt,
 			offset: 2,
 			want: buildResult{
-				query: "SELECT id FROM t WHERE (a=$3) AND ((ROW((created_at),(id)) <= ROW($4,$5) OR $4 IS NULL OR $5 IS NULL) AND ((created_at) <= $4 AND (created_at) IS NOT NULL OR $4 IS NULL) AND ((created_at) IS DISTINCT FROM $4 OR (((id) <= $5 AND (id) IS NOT NULL OR $5 IS NULL) AND (id) IS DISTINCT FROM $5))) LIMIT 5",
+				query: "SELECT id FROM t WHERE (a=$3) AND ((ROW((created_at),(id)) <= ROW($4,$5)) AND ((created_at) <= $4 AND (created_at) IS NOT NULL) AND ((created_at) IS DISTINCT FROM $4 OR (((id) <= $5 AND (id) IS NOT NULL) AND (id) IS DISTINCT FROM $5))) LIMIT 5",
 				args:  []any{1, "c", 2},
 			},
 		},
@@ -108,7 +108,7 @@ func TestWhereExprBuildAt(t *testing.T) {
 		{"zero offset", Where("a=$", 1), 0, buildResult{query: "(a=$1)", args: []any{1}}},
 		{"composition", Or(Where("a=$", 1), Not(Where("b=$", 2))), 1, buildResult{query: "((a=$2) OR (NOT (b=$3)))", args: []any{1, 2}}},
 		{"empty and", And(), 1, buildResult{query: "(TRUE)"}},
-		{"keyset", After([]OrderTerm{Asc("id")}, 5), 1, buildResult{query: "(((id) >= $2 AND $2 IS NOT NULL OR (id) IS NULL) AND (id) IS DISTINCT FROM $2)", args: []any{5}}},
+		{"keyset", After([]OrderTerm{Asc("id")}, 5), 1, buildResult{query: "(((id) >= $2 OR (id) IS NULL) AND (id) IS DISTINCT FROM $2)", args: []any{5}}},
 		{"trailing comment", Where("a=$ -- note", 1), 1, buildResult{query: "(a=$2 -- note\n)", args: []any{1}}},
 		{"zero value", WhereExpr{}, 1, buildResult{err: "pql: WHERE condition is required"}},
 		{"argument mismatch", Where("a=$"), 1, buildResult{err: "pql: WHERE placeholder count 1 does not match argument count 0"}},

@@ -204,6 +204,20 @@ for their SQL types.
 `After` and `Before` exclude the boundary; `AtOrAfter` and `AtOrBefore` include it.
 These helpers create conditions without changing the statement's ordering or limit.
 
+The generated SQL depends on which cursor values are NULL, so PostgreSQL can seek
+an index even when it uses a generic plan for a statement pgx has prepared and
+cached. pql recognizes NULL for `nil`, nil pointers, and `driver.Valuer` values
+such as `pgtype.Date{}` or `sql.NullTime{}`; booleans, numbers, strings,
+`time.Time`, and pointers to them are known not to be NULL. For other types the
+NULL test stays in SQL, which is correct but can make generic plans scan.
+
+For a multicolumn index, the condition includes a row comparison such as
+`ROW(a, id) <= ROW($1, $2)` when the leading orders share a direction and NULLs
+sort before the requested range: for example `Desc` with `After`, or `Asc` with
+`Before`. With the default `Asc` and `After`, NULLs sort after the range, so the
+index is entered only through the leading key. Declare such keys `NullsFirst` when
+the columns are NOT NULL and the index matches, to get the row comparison.
+
 The runnable [pagination example](examples/pagination/README.md) covers first,
 next, and previous pages, reversed ordering, and date/NULL cursor handling.
 

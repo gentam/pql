@@ -650,8 +650,8 @@ func ExampleAfter() {
 	fmt.Println(args)
 
 	// Output:
-	// SELECT id FROM items WHERE (((score) <= $1 AND $1 IS NOT NULL OR (score) IS NULL) AND ((score) IS DISTINCT FROM $1 OR (((id) >= $2 AND $2 IS NOT NULL OR (id) IS NULL) AND (id) IS DISTINCT FROM $2))) ORDER BY score DESC NULLS LAST,id ASC LIMIT 20
-	// [<nil> 10]
+	// SELECT id FROM items WHERE (((score) IS NULL) AND ((score) IS NOT NULL OR (((id) >= $1 OR (id) IS NULL) AND (id) IS DISTINCT FROM $1))) ORDER BY score DESC NULLS LAST,id ASC LIMIT 20
+	// [10]
 }
 
 func ExampleWhereExpr_BuildAt() {

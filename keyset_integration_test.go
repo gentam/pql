@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +15,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// opaqueInt encodes through pgx's Int64Valuer, which pql cannot classify as
+// NULL or not, so the keyset condition keeps its NULL checks in SQL.
+type opaqueInt struct{ v *int }
+
+func (o opaqueInt) Int64Value() (pgtype.Int8, error) {
+	if o.v == nil {
+		return pgtype.Int8{}, nil
+	}
+	return pgtype.Int8{Int64: int64(*o.v), Valid: true}, nil
+}
 
 type keysetRecord struct {
 	ID int
@@ -94,29 +106,34 @@ func TestKeysetPostgres(t *testing.T) {
 					for i, r := range records {
 						for _, boundary := range boundaries {
 							for _, complement := range []bool{false, true} {
-								w := boundary.make(orders, r.A, r.B, r.ID)
-								want := boundary.want(ids, i)
-								if complement {
-									w = Not(w)
-									matched := want
-									want = nil
-									for _, id := range ids {
-										if !slices.Contains(matched, id) {
-											want = append(want, id)
+								for _, values := range [][]any{
+									{r.A, r.B, r.ID},
+									{opaqueInt{r.A}, opaqueInt{r.B}, opaqueInt{&r.ID}},
+								} {
+									w := boundary.make(orders, values...)
+									want := boundary.want(ids, i)
+									if complement {
+										w = Not(w)
+										matched := want
+										want = nil
+										for _, id := range ids {
+											if !slices.Contains(matched, id) {
+												want = append(want, id)
+											}
 										}
 									}
-								}
-								query, args, err := Select("id").From("pql_keyset").SetOrders(orders...).Apply(w).Build()
-								if err != nil {
-									t.Fatal(err)
-								}
-								batch.Queue(query, args...).Query(func(rows pgx.Rows) error {
-									got, err := pgx.CollectRows(rows, pgx.RowTo[int])
-									if err == nil && !slices.Equal(got, want) {
-										t.Errorf("%s cursor id %d complement %t: got %v, want %v", boundary.name, r.ID, complement, got, want)
+									query, args, err := Select("id").From("pql_keyset").SetOrders(orders...).Apply(w).Build()
+									if err != nil {
+										t.Fatal(err)
 									}
-									return err
-								})
+									batch.Queue(query, args...).Query(func(rows pgx.Rows) error {
+										got, err := pgx.CollectRows(rows, pgx.RowTo[int])
+										if err == nil && !slices.Equal(got, want) {
+											t.Errorf("%s cursor id %d complement %t: got %v, want %v", boundary.name, r.ID, complement, got, want)
+										}
+										return err
+									})
+								}
 							}
 						}
 					}
@@ -435,30 +452,59 @@ func testKeysetIndexBoundary(t *testing.T, conn *pgx.Conn) {
 				if err := conn.QueryRow(ctx, "EXPLAIN (ANALYZE, FORMAT JSON, TIMING OFF) "+query, args...).Scan(&raw); err != nil {
 					t.Fatal(err)
 				}
-				type plan struct {
-					NodeType string  `json:"Node Type"`
-					Rows     float64 `json:"Actual Rows"`
-					Loops    float64 `json:"Actual Loops"`
-					Removed  float64 `json:"Rows Removed by Filter"`
-					Plans    []plan
+				checkKeysetWork(t, raw)
+				// pgx caches prepared statements, and PostgreSQL may switch them to
+				// a generic plan, which cannot fold NULL checks on parameters.
+				// Parameter types are inferred; the values are integer literals.
+				literals := make([]string, len(values))
+				for i, v := range values {
+					literals[i] = fmt.Sprint(v)
 				}
-				var explained []struct{ Plan plan }
-				if err := json.Unmarshal(raw, &explained); err != nil || len(explained) != 1 {
-					t.Fatalf("invalid plan %s: %v", raw, err)
-				}
-				// Bound the work, not elapsed time or a particular plan's spelling.
-				// The old leading-key-only bound discarded roughly 99,000 rows.
-				var check func(plan)
-				check = func(p plan) {
-					if (p.Rows+p.Removed)*p.Loops > 100 {
-						t.Fatalf("%s processed too many rows: %s", p.NodeType, raw)
-					}
-					for _, child := range p.Plans {
-						check(child)
+				for _, sql := range []string{"PREPARE pql_keyset_generic AS " + query, "SET plan_cache_mode = force_generic_plan"} {
+					if _, err := conn.Exec(ctx, sql); err != nil {
+						t.Fatal(err)
 					}
 				}
-				check(explained[0].Plan)
+				t.Cleanup(func() {
+					if _, err := conn.Exec(context.Background(), "DEALLOCATE pql_keyset_generic; RESET plan_cache_mode"); err != nil {
+						t.Error(err)
+					}
+				})
+				explain := "EXPLAIN (ANALYZE, FORMAT JSON, TIMING OFF) EXECUTE pql_keyset_generic(" + strings.Join(literals, ",") + ")"
+				if err := conn.QueryRow(ctx, explain).Scan(&raw); err != nil {
+					t.Fatal(err)
+				}
+				checkKeysetWork(t, raw)
 			})
 		}
 	}
+}
+
+// checkKeysetWork fails if any plan node of an EXPLAIN ANALYZE JSON result
+// processed more rows than a page needs.
+func checkKeysetWork(t *testing.T, raw []byte) {
+	t.Helper()
+	type plan struct {
+		NodeType string  `json:"Node Type"`
+		Rows     float64 `json:"Actual Rows"`
+		Loops    float64 `json:"Actual Loops"`
+		Removed  float64 `json:"Rows Removed by Filter"`
+		Plans    []plan
+	}
+	var explained []struct{ Plan plan }
+	if err := json.Unmarshal(raw, &explained); err != nil || len(explained) != 1 {
+		t.Fatalf("invalid plan %s: %v", raw, err)
+	}
+	// Bound the work, not elapsed time or a particular plan's spelling.
+	// The old leading-key-only bound discarded roughly 99,000 rows.
+	var check func(plan)
+	check = func(p plan) {
+		if (p.Rows+p.Removed)*p.Loops > 100 {
+			t.Fatalf("%s processed too many rows: %s", p.NodeType, raw)
+		}
+		for _, child := range p.Plans {
+			check(child)
+		}
+	}
+	check(explained[0].Plan)
 }
