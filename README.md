@@ -46,8 +46,8 @@ expressions, because their numbers would collide with the bound arguments.
 ## Execute statements
 
 Pass a connection, pool, or transaction implementing `pql.Querier` to execute a
-statement. To omit that argument, configure `pql.SetDefaultPool(pool)` at startup,
-before executing statements concurrently.
+statement. To omit that argument, configure `pql.SetDefaultPool(pool)`, typically
+at startup; it is safe to call while statements are executing.
 
 | Method | Statements | Returns |
 | --- | --- | --- |

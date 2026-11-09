@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -206,6 +207,31 @@ func executionStatements() []executionCase {
 		{"update", Update("t").Set("n", 7).All().Returning("n"), "UPDATE t SET n=$1 RETURNING n", "UPDATE 2"},
 		{"delete", Delete("t").Apply(Where("n=$", 7)).Returning("n"), "DELETE FROM t WHERE (n=$1) RETURNING n", "DELETE 2"},
 	}
+}
+
+func TestSetDefaultPoolConcurrent(t *testing.T) {
+	// Not parallel: SetDefaultPool changes the package-level pool.
+	t.Cleanup(func() { SetDefaultPool(nil) })
+	pools := []*pgxpool.Pool{{}, {}}
+	var wg sync.WaitGroup
+	for i := range 8 {
+		wg.Go(func() {
+			for j := range 100 {
+				if i%2 == 0 {
+					SetDefaultPool(pools[j%2])
+					continue
+				}
+				got, err := resolveQuerier(nil)
+				if err != nil {
+					continue // The pool may not have been set yet.
+				}
+				if got != pools[0] && got != pools[1] {
+					t.Errorf("connection = %v, want one of the configured pools", got)
+				}
+			}
+		})
+	}
+	wg.Wait()
 }
 
 func TestResolveQuerier(t *testing.T) {

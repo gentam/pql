@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync/atomic"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -36,7 +37,7 @@ type Querier interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-var defaultPool *pgxpool.Pool
+var defaultPool atomic.Pointer[pgxpool.Pool]
 
 var errDefaultPoolNotSet = errors.New("pql: default pool is not set")
 var errNilQuerier = errors.New("pql: connection is nil")
@@ -44,9 +45,10 @@ var errNilQuerier = errors.New("pql: connection is nil")
 // SetDefaultPool sets the pool used when no connection is supplied to a statement
 // execution method. Passing nil clears the default pool.
 //
-// Configure the default pool before executing statements concurrently.
+// It is safe to call concurrently with statement execution. Each execution
+// uses the pool configured when it starts.
 func SetDefaultPool(p *pgxpool.Pool) {
-	defaultPool = p
+	defaultPool.Store(p)
 }
 
 // Query executes the SELECT statement and returns its rows.
@@ -190,10 +192,11 @@ func (r errorRow) Scan(...any) error { return r.err }
 func resolveQuerier(conn []Querier) (Querier, error) {
 	switch len(conn) {
 	case 0:
-		if defaultPool == nil {
+		pool := defaultPool.Load()
+		if pool == nil {
 			return nil, errDefaultPoolNotSet
 		}
-		return defaultPool, nil
+		return pool, nil
 	case 1:
 		if isNilQuerier(conn[0]) {
 			return nil, errNilQuerier
