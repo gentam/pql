@@ -268,6 +268,42 @@ func TestBuildError(t *testing.T) {
 	}
 }
 
+func TestBuildRejectsPlaceholdersInRawSQL(t *testing.T) {
+	t.Parallel()
+	const suffix = "; bind values in WHERE conditions"
+	keysetOrders := []OrderTerm{Desc("a"), Desc("b + $1")}
+	for _, tt := range []struct {
+		name  string
+		build Builder
+		kind  string
+	}{
+		{"select column", Select("$1").From("t").Where("a=$", 1), "SELECT expression"},
+		{"select from", Select().From("generate_series(1, $)"), "FROM expression"},
+		{"select order", Select().From("t").Asc("a <-> $"), "ORDER BY expression"},
+		{"keyset order", Select().From("t").Apply(After(keysetOrders, 1, 2)), "ORDER BY expression"},
+		{"insert table", Insert("f($)").Set("a", 1), "INSERT table"},
+		{"insert column", Insert("t").Set("$1", 1), "INSERT column"},
+		{"insert returning", Insert("t").Set("a", 1).Returning("a + $1"), "RETURNING expression"},
+		{"update table", Update("t, f($)").Set("a", 1).Where("id=$", 1), "UPDATE table"},
+		{"update column", Update("t").Set("$1", 1).Where("id=$", 1), "UPDATE column"},
+		{"update returning", Update("t").Set("a", 1).Where("id=$", 1).Returning("$2"), "RETURNING expression"},
+		{"delete table", Delete("t USING f($)").Where("id=$", 1), "DELETE table"},
+		{"delete returning", Delete("t").Where("id=$", 1).Returning("$2"), "RETURNING expression"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assertBuild(t, tt.build, buildResult{err: "pql: placeholders are not supported in " + tt.kind + suffix})
+		})
+	}
+}
+
+func TestBuildRejectsUnterminatedRawSQL(t *testing.T) {
+	t.Parallel()
+	assertBuild(t, Select("'open").From("t"), buildResult{err: "pql: unterminated string in SELECT expression"})
+	assertBuild(t, Select().From(`"t`), buildResult{err: "pql: unterminated quoted identifier in FROM expression"})
+	assertBuild(t, Select().From("t").Desc("a /*"), buildResult{err: "pql: unterminated block comment in ORDER BY expression"})
+}
+
 func TestBuildEmptyColumnExpressions(t *testing.T) {
 	t.Parallel()
 	for _, tt := range []struct {

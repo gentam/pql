@@ -8,7 +8,7 @@ import (
 )
 
 func numberPlaceholders(expr string, offset, numArgs int) (string, error) {
-	sql, count, err := rewriteSQL(expr, offset, true)
+	sql, count, err := rewriteSQL(expr, offset, true, "WHERE expression")
 	if err != nil {
 		return "", err
 	}
@@ -18,24 +18,25 @@ func numberPlaceholders(expr string, offset, numArgs int) (string, error) {
 	return sql, nil
 }
 
-// terminateLineComment keeps a fragment's final line comment from consuming
-// SQL appended by the builder. Raw SQL is otherwise left unvalidated.
-func terminateLineComment(expr string) string {
-	if !strings.Contains(expr, "--") {
-		return expr
+// rawSQL checks a trusted SQL fragment that takes no bound values, such as a
+// table, column, or ORDER BY expression, and keeps its final line comment from
+// consuming SQL appended by the builder. Placeholders are rejected because their
+// numbers would collide with the statement's bound arguments. kind names the
+// fragment in error messages. Raw SQL is otherwise left unvalidated.
+func rawSQL(expr, kind string) (string, error) {
+	if !strings.ContainsAny(expr, "$-'\"/") {
+		return expr, nil
 	}
-	sql, _, err := rewriteSQL(expr, 0, false)
-	if err != nil {
-		return expr
-	}
-	return sql
+	sql, _, err := rewriteSQL(expr, 0, false, kind)
+	return sql, err
 }
 
-// rewriteSQL scans PostgreSQL tokens, optionally numbering placeholders, and
-// terminates a trailing line comment with a newline. Ordinary strings follow
-// standard_conforming_strings=on; only E strings treat backslashes as escapes.
-// Untouched spans are copied verbatim.
-func rewriteSQL(expr string, offset int, number bool) (string, int, error) {
+// rewriteSQL scans PostgreSQL tokens and terminates a trailing line comment
+// with a newline. When number is true, unnumbered placeholders are numbered from
+// offset+1; otherwise any placeholder is an error. kind names the fragment in
+// error messages. Ordinary strings follow standard_conforming_strings=on; only
+// E strings treat backslashes as escapes. Untouched spans are copied verbatim.
+func rewriteSQL(expr string, offset int, number bool, kind string) (string, int, error) {
 	var b strings.Builder
 	count, start := 0, 0
 	for i := 0; i < len(expr); {
@@ -43,15 +44,15 @@ func rewriteSQL(expr string, offset int, number bool) (string, int, error) {
 		case (c == 'E' || c == 'e') && i+1 < len(expr) && expr[i+1] == '\'':
 			i = quotedEnd(expr, i+1, '\'', true)
 			if i < 0 {
-				return "", 0, errors.New("pql: unterminated string in WHERE expression")
+				return "", 0, errors.New("pql: unterminated string in " + kind)
 			}
 		case c == '\'' || c == '"':
 			i = quotedEnd(expr, i, c, false)
 			if i < 0 {
 				if c == '"' {
-					return "", 0, errors.New("pql: unterminated quoted identifier in WHERE expression")
+					return "", 0, errors.New("pql: unterminated quoted identifier in " + kind)
 				}
-				return "", 0, errors.New("pql: unterminated string in WHERE expression")
+				return "", 0, errors.New("pql: unterminated string in " + kind)
 			}
 		case c == '-' && i+1 < len(expr) && expr[i+1] == '-':
 			i = lineCommentEnd(expr, i)
@@ -63,7 +64,7 @@ func rewriteSQL(expr string, offset int, number bool) (string, int, error) {
 		case c == '/' && i+1 < len(expr) && expr[i+1] == '*':
 			i = blockCommentEnd(expr, i)
 			if i < 0 {
-				return "", 0, errors.New("pql: unterminated block comment in WHERE expression")
+				return "", 0, errors.New("pql: unterminated block comment in " + kind)
 			}
 		case isSQLIdentStart(c):
 			i++
@@ -75,14 +76,13 @@ func rewriteSQL(expr string, offset int, number bool) (string, int, error) {
 				delimiter := expr[i:end]
 				closing := strings.Index(expr[end:], delimiter)
 				if closing < 0 {
-					return "", 0, errors.New("pql: unterminated dollar-quoted string in WHERE expression")
+					return "", 0, errors.New("pql: unterminated dollar-quoted string in " + kind)
 				}
 				i = end + closing + len(delimiter)
 				continue
 			}
 			if !number {
-				i++
-				continue
+				return "", 0, fmt.Errorf("pql: placeholders are not supported in %s; bind values in WHERE conditions", kind)
 			}
 			if i+1 < len(expr) && isSQLDigit(expr[i+1]) {
 				return "", 0, errors.New("pql: numbered placeholders are not supported in WHERE expressions; use $")

@@ -65,10 +65,13 @@ func (k *keysetExpr) build(args []any) (string, []any, error) {
 	if len(k.orders) != len(k.values) {
 		return "", nil, fmt.Errorf("pql: keyset order count %d does not match value count %d", len(k.orders), len(k.values))
 	}
-	for _, order := range k.orders {
-		if err := order.validate(); err != nil {
+	exprs := make([]string, len(k.orders))
+	for i, order := range k.orders {
+		expr, err := order.sql()
+		if err != nil {
 			return "", nil, err
 		}
+		exprs[i] = "(" + expr + ")"
 	}
 
 	// Reuse each bound parameter in comparisons and NULL checks. Its comparison
@@ -76,9 +79,9 @@ func (k *keysetExpr) build(args []any) (string, []any, error) {
 	start := len(args)
 	args = append(args, k.values...)
 	b := &strings.Builder{}
-	k.buildRowBound(b, start)
+	k.buildRowBound(b, exprs, start)
 	for i, order := range k.orders {
-		expr := "(" + terminateLineComment(order.expr) + ")"
+		expr := exprs[i]
 		arg := "$" + strconv.Itoa(start+i+1)
 		op := ">="
 		if order.desc != k.before {
@@ -106,7 +109,7 @@ func (k *keysetExpr) build(args []any) (string, []any, error) {
 // multicolumn index, rather than filtering all equal values of the leading key.
 // A row comparison is safe for the same-direction prefix whose NULLs precede
 // the requested range. The full predicate below still handles NULLs and ties.
-func (k *keysetExpr) buildRowBound(b *strings.Builder, start int) {
+func (k *keysetExpr) buildRowBound(b *strings.Builder, exprs []string, start int) {
 	n := 0
 	for _, order := range k.orders {
 		if order.desc != k.orders[0].desc || order.NullsLast() != k.before {
@@ -117,9 +120,8 @@ func (k *keysetExpr) buildRowBound(b *strings.Builder, start int) {
 	if n < 2 {
 		return
 	}
-	exprs, args := make([]string, n), make([]string, n)
-	for i, order := range k.orders[:n] {
-		exprs[i] = "(" + terminateLineComment(order.expr) + ")"
+	exprs, args := exprs[:n], make([]string, n)
+	for i := range args {
 		args[i] = "$" + strconv.Itoa(start+i+1)
 	}
 	// Keep the bound inclusive even for strict paging: the full predicate removes

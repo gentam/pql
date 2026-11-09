@@ -37,16 +37,15 @@ func (s *InsertStmt) Clone() *InsertStmt {
 // The table must not be empty or whitespace-only, and at least one column
 // assignment is required.
 func (s *InsertStmt) Build() (string, []any, error) {
-	if strings.TrimSpace(s.table) == "" {
-		return "", nil, errors.New("pql: INSERT table is required")
-	}
-	if len(s.m) == 0 {
+	if len(s.m) == 0 && strings.TrimSpace(s.table) != "" {
 		return "", nil, errors.New("pql: INSERT values are required")
 	}
 
 	b := &strings.Builder{}
 	b.WriteString("INSERT INTO ")
-	b.WriteString(terminateLineComment(s.table))
+	if err := writeRawSQL(b, s.table, "INSERT table"); err != nil {
+		return "", nil, err
+	}
 
 	n := len(s.m)
 	cols := slices.Sorted(maps.Keys(s.m))

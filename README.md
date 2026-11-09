@@ -39,7 +39,9 @@ PostgreSQL operators such as the JSONB `?` operator can be used directly.
 
 Table names, column names, and SQL expressions must be trusted: they are not
 quoted or escaped. Only values supplied through WHERE placeholders, `Set`,
-`Values`, `SetValues`, or keyset helpers become bound parameters.
+`Values`, `SetValues`, or keyset helpers become bound parameters. `Build` rejects
+`$` placeholders anywhere else, such as in SELECT, FROM, ORDER BY, or RETURNING
+expressions, because their numbers would collide with the bound arguments.
 
 ## Execute statements
 

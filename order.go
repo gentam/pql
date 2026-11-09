@@ -106,13 +106,14 @@ func ReversedOrders(orders []OrderTerm) []OrderTerm {
 func buildOrder(b *strings.Builder, orders []OrderTerm) error {
 	b.WriteString(" ORDER BY ")
 	for i, order := range orders {
-		if err := order.validate(); err != nil {
+		expr, err := order.sql()
+		if err != nil {
 			return err
 		}
 		if i != 0 {
 			b.WriteByte(',')
 		}
-		b.WriteString(terminateLineComment(order.expr))
+		b.WriteString(expr)
 		if order.desc {
 			b.WriteString(" DESC")
 		} else {
@@ -129,14 +130,15 @@ func buildOrder(b *strings.Builder, orders []OrderTerm) error {
 	return nil
 }
 
-func (o OrderTerm) validate() error {
+// sql validates the term and returns its expression ready to be written.
+func (o OrderTerm) sql() (string, error) {
 	if strings.TrimSpace(o.expr) == "" {
-		return errors.New("pql: ORDER BY expression is required")
+		return "", errors.New("pql: ORDER BY expression is required")
 	}
 	switch o.nulls {
 	case NullsDefault, NullsFirst, NullsLast:
 	default:
-		return fmt.Errorf("pql: invalid NULLS order %d", o.nulls)
+		return "", fmt.Errorf("pql: invalid NULLS order %d", o.nulls)
 	}
-	return nil
+	return rawSQL(o.expr, "ORDER BY expression")
 }

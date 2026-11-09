@@ -219,13 +219,25 @@ func buildReturning(b *strings.Builder, returning []string) error {
 
 func writeSQLList(b *strings.Builder, exprs []string, kind string) error {
 	for i, expr := range exprs {
-		if strings.TrimSpace(expr) == "" {
-			return fmt.Errorf("pql: %s is required", kind)
-		}
 		if i != 0 {
 			b.WriteByte(',')
 		}
-		b.WriteString(terminateLineComment(expr))
+		if err := writeRawSQL(b, expr, kind); err != nil {
+			return err
+		}
 	}
+	return nil
+}
+
+// writeRawSQL writes a required trusted SQL fragment; see [rawSQL].
+func writeRawSQL(b *strings.Builder, expr, kind string) error {
+	if strings.TrimSpace(expr) == "" {
+		return fmt.Errorf("pql: %s is required", kind)
+	}
+	sql, err := rawSQL(expr, kind)
+	if err != nil {
+		return err
+	}
+	b.WriteString(sql)
 	return nil
 }

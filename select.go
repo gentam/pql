@@ -90,11 +90,10 @@ func (s *SelectStmt) Build() (string, []any, error) {
 	}
 
 	if s.table != "" {
-		if strings.TrimSpace(s.table) == "" {
-			return "", nil, errors.New("pql: FROM expression is required")
-		}
 		b.WriteString(" FROM ")
-		b.WriteString(terminateLineComment(s.table))
+		if err := writeRawSQL(b, s.table, "FROM expression"); err != nil {
+			return "", nil, err
+		}
 	}
 
 	var args []any

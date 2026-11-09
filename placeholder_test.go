@@ -117,38 +117,65 @@ func TestNumberPlaceholdersError(t *testing.T) {
 	}
 }
 
-func TestTerminateLineComment(t *testing.T) {
+func TestRawSQL(t *testing.T) {
 	t.Parallel()
 	for _, tt := range []struct {
 		expr string
 		want string
 	}{
+		{"id", "id"},
 		{"id -- comment", "id -- comment\n"},
 		{"id --", "id --\n"},
-		{"id -- ' $tag$ /*", "id -- ' $tag$ /*\n"},
+		{"id -- ' $tag$ /* $", "id -- ' $tag$ /* $\n"},
 		{"id -- comment\n", "id -- comment\n"},
 		{"id -- comment\r", "id -- comment\r"},
 		{"id -- comment\r\n", "id -- comment\r\n"},
 		{"id -- comment\n + 1", "id -- comment\n + 1"},
-		{"id=$1 -- comment", "id=$1 -- comment\n"},
-		{"id=$name -- comment", "id=$name -- comment\n"},
-		{"id=$ -- comment", "id=$ -- comment\n"},
 		{`'--'`, `'--'`},
+		{`'$1'`, `'$1'`},
 		{`E'it\'s --'`, `E'it\'s --'`},
 		{"E'a'\n'\\'--'", "E'a'\n'\\'--'"},
 		{`"--"`, `"--"`},
+		{`"price$"`, `"price$"`},
+		{`price$usd`, `price$usd`},
 		{`$$--$$`, `$$--$$`},
 		{`$tag$--$tag$`, `$tag$--$tag$`},
-		{`id /* -- /* -- */ */`, `id /* -- /* -- */ */`},
-		{`'unterminated --`, `'unterminated --`},
-		{`"unterminated --`, `"unterminated --`},
-		{`$tag$unterminated --`, `$tag$unterminated --`},
-		{`/* unterminated --`, `/* unterminated --`},
+		{`id /* -- $1 /* -- */ */`, `id /* -- $1 /* -- */ */`},
+		{`a - b / c`, `a - b / c`},
 	} {
 		t.Run(tt.expr, func(t *testing.T) {
 			t.Parallel()
-			if got := terminateLineComment(tt.expr); got != tt.want {
-				t.Fatalf("terminateLineComment(%q) = %q, want %q", tt.expr, got, tt.want)
+			got, err := rawSQL(tt.expr, "test expression")
+			if err != nil || got != tt.want {
+				t.Fatalf("rawSQL(%q) = (%q, %v), want (%q, nil)", tt.expr, got, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestRawSQLError(t *testing.T) {
+	t.Parallel()
+	const placeholder = "pql: placeholders are not supported in test expression; bind values in WHERE conditions"
+	for _, tt := range []struct {
+		expr string
+		want string
+	}{
+		{"$", placeholder},
+		{"$1", placeholder},
+		{"id=$1 -- comment", placeholder},
+		{"$name", placeholder},
+		{"f($, $)", placeholder},
+		{"$::int", placeholder},
+		{`'unterminated --`, "pql: unterminated string in test expression"},
+		{`"unterminated --`, "pql: unterminated quoted identifier in test expression"},
+		{`$tag$unterminated --`, "pql: unterminated dollar-quoted string in test expression"},
+		{`/* unterminated --`, "pql: unterminated block comment in test expression"},
+	} {
+		t.Run(tt.expr, func(t *testing.T) {
+			t.Parallel()
+			got, err := rawSQL(tt.expr, "test expression")
+			if got != "" || err == nil || err.Error() != tt.want {
+				t.Fatalf("rawSQL(%q) = (%q, %v), want (\"\", %q)", tt.expr, got, err, tt.want)
 			}
 		})
 	}
@@ -174,8 +201,8 @@ func FuzzNumberPlaceholders(f *testing.F) {
 				if suffix != "" {
 					want += "\n"
 				}
-				if got := terminateLineComment(expr); got != want {
-					t.Fatalf("terminateLineComment(%q) = %q, want %q", expr, got, want)
+				if got, err := rawSQL(expr, "test expression"); err != nil || got != want {
+					t.Fatalf("rawSQL(%q) = (%q, %v), want (%q, nil)", expr, got, err, want)
 				}
 			}
 			expr := "$::text = " + token + " AND $::text = $::text"

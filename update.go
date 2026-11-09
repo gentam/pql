@@ -39,28 +39,26 @@ func (s *UpdateStmt) Clone() *UpdateStmt {
 // The table must not be empty or whitespace-only, and at least one column
 // assignment is required.
 func (s *UpdateStmt) Build() (string, []any, error) {
-	if strings.TrimSpace(s.table) == "" {
-		return "", nil, errors.New("pql: UPDATE table is required")
-	}
-	if len(s.m) == 0 {
+	if len(s.m) == 0 && strings.TrimSpace(s.table) != "" {
 		return "", nil, errors.New("pql: UPDATE values are required")
 	}
 
 	b := &strings.Builder{}
 	b.WriteString("UPDATE ")
-	b.WriteString(terminateLineComment(s.table))
+	if err := writeRawSQL(b, s.table, "UPDATE table"); err != nil {
+		return "", nil, err
+	}
 
 	b.WriteString(" SET ")
 	cols := slices.Sorted(maps.Keys(s.m))
 	args := make([]any, len(cols))
 	for i, col := range cols {
-		if strings.TrimSpace(col) == "" {
-			return "", nil, errors.New("pql: UPDATE column is required")
-		}
 		if i != 0 {
 			b.WriteByte(',')
 		}
-		b.WriteString(terminateLineComment(col))
+		if err := writeRawSQL(b, col, "UPDATE column"); err != nil {
+			return "", nil, err
+		}
 		b.WriteString("=$")
 		args[i] = s.m[col]
 		b.WriteString(strconv.Itoa(i + 1))

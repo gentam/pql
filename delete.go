@@ -1,7 +1,6 @@
 package pql
 
 import (
-	"errors"
 	"slices"
 	"strings"
 )
@@ -34,13 +33,11 @@ func (s *DeleteStmt) Clone() *DeleteStmt {
 // Build returns SQL, positional arguments, and a validation error.
 // The table must not be empty or whitespace-only.
 func (s *DeleteStmt) Build() (string, []any, error) {
-	if strings.TrimSpace(s.table) == "" {
-		return "", nil, errors.New("pql: DELETE table is required")
-	}
-
 	b := &strings.Builder{}
 	b.WriteString("DELETE FROM ")
-	b.WriteString(terminateLineComment(s.table))
+	if err := writeRawSQL(b, s.table, "DELETE table"); err != nil {
+		return "", nil, err
+	}
 
 	var args []any
 	if len(s.where) != 0 {
