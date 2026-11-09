@@ -368,3 +368,23 @@ func TestSelectSetWhere(t *testing.T) {
 	assertBuild(t, stmt.SetWhere(Where("")), buildResult{err: "pql: WHERE condition is required"})
 	assertBuild(t, stmt.SetWhere(), cleared)
 }
+
+func TestSelectAccessorsReturnNilWhenEmpty(t *testing.T) {
+	t.Parallel()
+	for _, s := range []*SelectStmt{
+		Select(),
+		Select("id").SetColumns().SetOrders(Asc("id")).SetOrders(),
+		Select([]string{}...).SetOrders([]OrderTerm{}...),
+	} {
+		if cols := s.Columns(); cols != nil {
+			t.Errorf("Columns() = %#v, want nil", cols)
+		}
+		if orders := s.Orders(); orders != nil {
+			t.Errorf("Orders() = %#v, want nil", orders)
+		}
+	}
+	s := Select("id").Asc("id")
+	cols, orders := s.Columns(), s.Orders()
+	cols[0], orders[0] = "changed", Desc("changed")
+	assertBuild(t, s, buildResult{query: "SELECT id ORDER BY id ASC"})
+}

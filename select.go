@@ -52,9 +52,12 @@ func (s *SelectStmt) Select(cols ...string) *SelectStmt {
 }
 
 // Columns returns a copy of the configured result expressions in their specified
-// order, without parsing them. If none are configured, it returns an empty slice;
+// order, without parsing them. If none are configured, it returns nil;
 // the default * selection is not added.
 func (s *SelectStmt) Columns() []string {
+	if len(s.cols) == 0 {
+		return nil
+	}
 	return slices.Clone(s.cols)
 }
 
@@ -209,15 +212,19 @@ func (s *SelectStmt) OrderBy(terms ...OrderTerm) *SelectStmt {
 }
 
 // Orders returns a copy of the statement's ordering.
+// If no ordering is configured, it returns nil.
 func (s *SelectStmt) Orders() []OrderTerm {
-	return append([]OrderTerm(nil), s.order...)
+	if len(s.order) == 0 {
+		return nil
+	}
+	return slices.Clone(s.order)
 }
 
 // SetOrders replaces the statement's ordering with a copy of orders.
 // Calling it without arguments clears the ordering.
 // Use [SelectStmt.OrderBy] to append existing terms.
 func (s *SelectStmt) SetOrders(orders ...OrderTerm) *SelectStmt {
-	s.order = append([]OrderTerm(nil), orders...)
+	s.order = slices.Clone(orders)
 	return s
 }
 
