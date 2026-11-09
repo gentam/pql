@@ -8,7 +8,7 @@ It was inspired by <https://github.com/jackc/pgsql>.
 
 ## Install
 
-Requires Go 1.26 or later and pgx v5.
+Requires Go 1.25 or later and pgx v5.
 
 ```sh
 go get github.com/gentam/pql
